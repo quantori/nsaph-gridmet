@@ -49,6 +49,9 @@ def get_shape_file_metadata(shape_file:str) -> List:
     return shapes
 
 
+
+
+
 if __name__ == '__main__':
     year = int(sys.argv[1])
     variable = "tmmx"
@@ -106,21 +109,37 @@ if __name__ == '__main__':
             layer = ds["air_temperature"][idx, :, :]
             print(dt, end='')
             t1 = datetime.now()
-            stats = zonal_stats(shape_file, layer, stats ="mean", affine=affine,
-                                geojson_out=True)
-            t1 = datetime.now() - t1
-            for record in stats:
+            stats1 = zonal_stats(shape_file, layer, stats ="mean",
+                                 affine=affine, geojson_out=True,
+                                 all_touched=False)
+            t2 = datetime.now()
+            stats2 = zonal_stats(shape_file, layer, stats ="mean",
+                                 affine=affine, geojson_out=True,
+                                 all_touched=True)
+            t3 = datetime.now()
+            for i in range(0, len(stats1)):
+                r1 = stats1[i]
+                r2 = stats2[i]
+                zip = r1['properties']['ZIP']
+                assert zip == r2['properties']['ZIP']
+                m1 = r1['properties']['mean']
+                m2 = r2['properties']['mean']
+                if m1 and m2:
+                    mean = (m1 + m2) / 2
+                elif m2:
+                    mean = m2
+                elif m1:
+                    raise AssertionError("m1 && !m2")
+                else:
+                    mean = None
                 #print (record)
                 # print("{} {}: {}".format(record['properties']['STATE'],
                 #                          record['properties']['ZIP'],
                 #                          record['properties']['mean']))
-                writer.writerow([record['properties']['mean'],
-                                 dt.strftime("%Y-%m-%d"),
-                                 record['properties']['ZIP']
-                                 ])
+                writer.writerow([mean, dt.strftime("%Y-%m-%d"), zip])
             t = datetime.now() - t0
             fmt = "%H:%M:%S.%f"
-            print(" \t{} [{}]".format(str(t1), str(t)))
+            print(" \t{}/{} [{}]".format(str(t2 - t1), str(t3 - t2), str(t)))
 
 
 
