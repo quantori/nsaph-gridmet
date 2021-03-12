@@ -2,4 +2,8 @@ nsaph_utils >= 0.0.2
 numpy
 pandas
 requests
+netCDF4
+rasterstats
+rasterio >= 1.1.0
+shapefile
 
