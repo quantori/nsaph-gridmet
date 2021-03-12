@@ -1,0 +1,5 @@
+nsaph_utils >= 0.0.2
+numpy
+pandas
+requests
+

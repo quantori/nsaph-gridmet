@@ -10,7 +10,7 @@ from rasterstats import zonal_stats
 import rasterio
 import shapefile
 
-from utils.io_utils import DownloadTask, as_stream, fopen
+from nsaph_utils.utils.io_utils import DownloadTask, as_stream, fopen
 
 
 def download_data(task: DownloadTask):
