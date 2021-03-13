@@ -49,7 +49,21 @@ def get_shape_file_metadata(shape_file:str) -> List:
     return shapes
 
 
-
+def find_shape_file(parent_dir: str, year: int):
+    shape_file = None
+    y = year
+    while y > 1999:
+        d = os.path.join(parent_dir, "{:d}".format(y))
+        if os.path.isdir(d):
+            f = "zip/polygon/ESRI{:02d}USZIP5_POLY_WGS84.shp".format(y - 2000)
+            shape_file = os.path.join(d, f)
+            break
+        y -= 1
+    if shape_file is None:
+        raise Exception(
+            "Could not find ZIP shape file for year {:d} or earlier"
+                .format(year))
+    return shape_file
 
 
 if __name__ == '__main__':
@@ -79,20 +93,7 @@ if __name__ == '__main__':
         print("{}: {}".format(var.name, description))
 
     origin = date(1900, 1, 1)
-    #shape_file = "shapes/zip_shape_files/2017/zip/point/ESRI17USZIP5_POINT_WGS84.shp"
-    y = year
-    shape_file = None
-    while y > 1999:
-        d = "shapes/zip_shape_files/{:d}".format(y)
-        if os.path.isdir(d):
-            f = "zip/polygon/ESRI{:02d}USZIP5_POLY_WGS84.shp".format(y - 2000)
-            shape_file = os.path.join(d, f)
-            break
-        y -= 1
-    if shape_file is None:
-        raise Exception(
-            "Could not find ZIP shape file for year {:d} or earlier"
-                .format(year))
+    shape_file = find_shape_file("shapes/zip_shape_files", year)
 
     days = ds["day"][:]
     d = "data/processed"

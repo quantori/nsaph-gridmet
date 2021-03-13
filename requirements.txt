@@ -1,4 +1,4 @@
-nsaph_utils >= 0.0.2
+nsaph_utils >= 0.0.3
 numpy
 pandas
 requests
