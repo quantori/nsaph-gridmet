@@ -4,14 +4,13 @@ from typing import List
 from nsaph_utils.utils.io_utils import DownloadTask
 
 from gridmet_ds_def import GridmetContext, GridmetVariable
+from gridmet_task import GridmetTask
 
 
 class Gridmet:
     """
     Main class, describes the whole download and processing job for climate data
     """
-    base_metdata_url = "https://www.northwestknowledge.net/metdata/data/"
-    url_pattern = base_metdata_url + "{}_{:d}.nc"
 
     def __init__(self, context: GridmetContext = None):
         """
@@ -22,23 +21,13 @@ class Gridmet:
         if not context:
             context = GridmetContext(__doc__)
         self.context = context
-        self.download_tasks = self.collect_download_tasks(self.context)
+        self.tasks = self.collect_tasks(self.context)
 
     @classmethod
-    def get_url(cls, year:int, variable: GridmetVariable) -> str:
-        return cls.url_pattern.format(variable.value, year)
-
-    @classmethod
-    def collect_download_tasks(cls, context: GridmetContext) -> List:
-        destination = context.raw_downloads
-        if not os.path.isdir(destination):
-            os.makedirs(destination)
+    def collect_tasks(cls, context: GridmetContext) -> List:
         tasks = [
-            DownloadTask(os.path.join(url.split('/')[-1]), [url])
-            for url in [
-                cls.get_url(y, v)
+            GridmetTask(context, y, v)
                 for y in context.years for v in context.variables
-            ]
         ]
         return tasks
 

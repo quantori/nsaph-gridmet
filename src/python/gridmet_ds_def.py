@@ -2,6 +2,14 @@ from enum import IntEnum, Enum
 from nsaph_utils.utils.context import Context, Argument, Cardinality
 
 
+class Geography(Enum):
+    zip = "zip"
+    county = "county"
+
+
+class Shape(Enum):
+    point = "point"
+    polygon = "polygon"
 
 
 class RasterizationStrategy(Enum):
@@ -30,16 +38,6 @@ class GridmetVariable(Enum):
 
 
 class GridmetContext(Context):
-    _years = Argument("years",
-                     aliases=['y'],
-                     cardinality=Cardinality.multiple,
-                     default="1990:2020",
-                     help="Year or list of years to download. For example, " +
-                        "the following argument: " +
-                        "`-y 1992:1995 1998 1999 2011 2015:2017` will produce " +
-                        "the following list: " +
-                        "[1992,1993,1994,1995,1998,1999,2011,2015,2016,2017]"
-                     )
     _variables = Argument("variable",
                           aliases=["var"],
                           cardinality=Cardinality.multiple,
@@ -61,15 +59,33 @@ class GridmetContext(Context):
                               default="data/downloads",
                               help="Directory for downloaded raw files"
                             )
+    _geography = Argument("geography",
+                          cardinality = Cardinality.single,
+                          default = "zip",
+                          help = "The type of geographic area over "
+                                 + "which we aggregate data"
+                          )
+    _shapes_dir = Argument("shapes_dir",
+                           default="shapes",
+                           help="Directory containing shape files for geographies."
+                            + " Directory structure is"
+                            + " expected to be: "
+                            + ".../${year}/${geo_type}/{point|polygon}/")
+    _shapes = Argument("shapes",
+                       cardinality=Cardinality.multiple,
+                       default=Shape.polygon.value,
+                       help="Type of shapes to aggregate over")
 
     def __init__(self, doc = None):
         """
         Constructor
         :param doc: Optional argument, specifying what to print as documentation
         """
-        self.years = None
         self.variables = None
         self.strategy = None
         self.destination = None
         self.raw_downloads = None
+        self.geography = None
+        self.shapes_dir = None
+        self.shapes = None
         super().__init__(GridmetContext, doc)
