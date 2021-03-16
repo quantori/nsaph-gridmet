@@ -25,9 +25,9 @@ class RasterizationStrategy(Enum):
     (for polygons). Alternate, all_touched strategy, rasterizes the geometry
     by including all pixels that it touches.
     """
-    DEFAULT = "default"
-    ALL_TOUCHED = "all_touched"
-    COMBINED = "combined"
+    default = "default"
+    all_touched = "all_touched"
+    combined = "combined"
 
 
 class GridmetVariable(Enum):
@@ -54,14 +54,14 @@ class GridmetVariable(Enum):
 
 
 class GridmetContext(Context):
-    _variables = Argument("variable",
+    _variables = Argument("variables",
                           aliases=["var"],
                           cardinality=Cardinality.multiple,
                           help="Gridmet variable",
                           valid_values=[v.value for v in GridmetVariable])
     _strategy = Argument("strategy",
                          aliases=['s'],
-                         default=RasterizationStrategy.DEFAULT,
+                         default=RasterizationStrategy.default.value,
                          help="Rasterization Strategy",
                          valid_values=[v.value for v in RasterizationStrategy])
     _destination = Argument("destination",
@@ -70,7 +70,7 @@ class GridmetContext(Context):
                             default="data/processed",
                             help="Destination directory for the processed files"
                             )
-    _raw_downloads = Argument("downloads",
+    _raw_downloads = Argument("raw_downloads",
                               cardinality=Cardinality.single,
                               default="data/downloads",
                               help="Directory for downloaded raw files"
@@ -89,7 +89,7 @@ class GridmetContext(Context):
                             + ".../${year}/${geo_type}/{point|polygon}/")
     _shapes = Argument("shapes",
                        cardinality=Cardinality.multiple,
-                       default=Shape.polygon.value,
+                       default=[Shape.polygon.value],
                        help="Type of shapes to aggregate over")
 
     def __init__(self, doc = None):
@@ -107,3 +107,16 @@ class GridmetContext(Context):
         self.shapes_dir = None
         self.shapes = None
         super().__init__(GridmetContext, doc)
+
+    def validate(self, attr, value):
+        value = super().validate(attr, value)
+        if attr == self._variables.name:
+            return [GridmetVariable(v) for v in value]
+        if attr == self._shapes.name:
+            return [Shape(v) for v in value]
+        if attr == self._geography.name:
+            return Geography[value]
+        if attr == self._strategy.name:
+            return RasterizationStrategy[value]
+        return value
+

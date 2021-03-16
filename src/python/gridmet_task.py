@@ -4,7 +4,7 @@ from datetime import date, timedelta, datetime
 
 import rasterio
 from netCDF4._netCDF4 import Dataset
-from nsaph_utils.utils.io_utils import DownloadTask, fopen
+from nsaph_utils.utils.io_utils import DownloadTask, fopen, as_stream
 from rasterstats import zonal_stats
 
 from gridmet_ds_def import RasterizationStrategy, GridmetVariable, \
@@ -38,8 +38,10 @@ class ComputeGridmetTask:
     def get_variable(cls, dataset: Dataset,  variable: GridmetVariable):
         standard_name = variable.value
         for var in dataset.variables.values():
-            if var["standard_name"] == standard_name:
-                return var["name"]
+            if hasattr(var,"standard_name") \
+                    and var.standard_name == standard_name:
+                return var.name
+        raise Exception("Not found in the dataset: " + standard_name)
 
     @staticmethod
     def combine(p, r1, r2):
@@ -59,6 +61,7 @@ class ComputeGridmetTask:
 
 
     def execute(self, mode:str = "w"):
+        print("{} => {}".format(self.infile, self.outfile))
         ds = Dataset(self.infile)
         with rasterio.open(self.infile) as rio:
             affine = rio.transform
@@ -77,37 +80,40 @@ class ComputeGridmetTask:
                 print(dt, end='')
                 t1 = datetime.now()
                 l = None
-                if self.strategy in [RasterizationStrategy.DEFAULT,
-                                     RasterizationStrategy.COMBINED]:
+                if self.strategy in [RasterizationStrategy.default,
+                                     RasterizationStrategy.combined]:
                     stats1 = zonal_stats(self.shapefile, layer, stats="mean",
                                          affine=affine, geojson_out=True,
                                          all_touched=False)
                     l = len(stats1)
-                if self.strategy in [RasterizationStrategy.ALL_TOUCHED,
-                                     RasterizationStrategy.COMBINED]:
+                if self.strategy in [RasterizationStrategy.all_touched,
+                                     RasterizationStrategy.combined]:
                     stats2 = zonal_stats(self.shapefile, layer, stats="mean",
                                          affine=affine, geojson_out=True,
                                          all_touched=False)
                     l = len(stats2)
 
                 for i in range(0, l):
-                    if self.strategy == RasterizationStrategy.COMBINED:
+                    if self.strategy == RasterizationStrategy.combined:
                         mean, prop = self.combine(p, stats1[i], stats2[i])
-                    elif self.strategy == RasterizationStrategy.DEFAULT:
+                    elif self.strategy == RasterizationStrategy.default:
                         mean = stats1[i]['properties']['mean']
                         prop = stats1[i]['properties'][p]
                     else:
                         mean = stats2[i]['properties']['mean']
                         prop = stats2[i]['properties'][p]
-                writer.writerow([mean, dt.strftime("%Y-%m-%d"), prop])
-            t3 = datetime.now()
-            t = datetime.now() - t0
-            print(" \t{} [{}]".format(str(t3 - t1), str(t)))
+                    writer.writerow([mean, dt.strftime("%Y-%m-%d"), prop])
+                out.flush()
+                t3 = datetime.now()
+                t = datetime.now() - t0
+                print(" \t{} [{}]".format(str(t3 - t1), str(t)))
+        return
 
 
-class GridmetDownloadTask:
+class DownloadGridmetTask:
     base_metdata_url = "https://www.northwestknowledge.net/metdata/data/"
     url_pattern = base_metdata_url + "{}_{:d}.nc"
+    BLOCK_SIZE = 65536
 
     @classmethod
     def get_url(cls, year:int, variable: GridmetVariable) -> str:
@@ -120,8 +126,30 @@ class GridmetDownloadTask:
             os.makedirs(destination)
 
         url = self.get_url(year, variable)
-        download_target = os.path.join(destination, url.split('/')[-1])
-        self.download_task = DownloadTask(download_target, [url])
+        target = os.path.join(destination, url.split('/')[-1])
+        self.download_task = DownloadTask(target, [url])
+
+    def target(self):
+        return self.download_task.destination
+
+    def execute(self):
+        print(str(self.download_task))
+        if self.download_task.is_up_to_date():
+            print("Up to date")
+            return
+        buffer = bytearray(self.BLOCK_SIZE)
+        with fopen(self.target(), "wb") as writer, \
+                as_stream(self.download_task.urls[0]) as reader:
+            n = 0
+            while True:
+                ret = reader.readinto(buffer)
+                if not ret:
+                    break
+                writer.write(buffer[:ret])
+                n += 1
+                if (n % 20) == 0:
+                    print("*", end='')
+        return
 
 
 class GridmetTask:
@@ -138,11 +166,12 @@ class GridmetTask:
         f = "{}_{}_{:d}.csv".format(variable.value, g, year)
         if context.compress:
             f += ".gz"
+        return os.path.join(context.destination, f)
 
     @classmethod
     def find_shape_file(cls, context: GridmetContext, year: int, shape: Shape):
         shape_file = None
-        parent_dir = context.shapes
+        parent_dir = context.shapes_dir
         y = year
         while y > 1999:
             d = os.path.join(parent_dir, "{:d}".format(y))
@@ -162,7 +191,7 @@ class GridmetTask:
                  year: int,
                  variable: GridmetVariable):
         destination = context.raw_downloads
-        self.download_task = GridmetDownloadTask(year, variable, destination)
+        self.download_task = DownloadGridmetTask(year, variable, destination)
 
         destination = context.destination
         if not os.path.isdir(destination):
@@ -173,7 +202,7 @@ class GridmetTask:
         self.compute_tasks = [
             ComputeGridmetTask(year,
                                variable,
-                               download_target,
+                               self.download_task.target(),
                                result,
                                context.strategy,
                                shape_file,
@@ -183,4 +212,10 @@ class GridmetTask:
                 for shape in context.shapes
             ]
         ]
+
+    def execute(self):
+        self.download_task.execute()
+        for task in self.compute_tasks:
+            task.execute()
+
 

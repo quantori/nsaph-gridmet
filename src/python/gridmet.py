@@ -1,3 +1,15 @@
+"""
+    Executing pipelines through this class requires a collection of shape files
+    corresponding to geographies for which data is aggregated
+    (for example, zip code areas or counties).
+
+    The data has to be placed in teh following directory structure:
+    ${year}/${geo_type: zip|county|etc.}/${shape:point|polygon}/
+
+    Which geography is used is defined by `geography` argument that defaults
+    to "zip". Only actually used geographies must have their shape files
+    for the years actually used.
+"""
 import os
 from typing import List
 
@@ -10,16 +22,6 @@ from gridmet_task import GridmetTask
 class Gridmet:
     """
     Main class, describes the whole download and processing job for climate data
-    Executing pipelines through this class requires a collection of shape files
-    corresponding to geographies for which data is aggregated
-    (for example, zip code areas or counties).
-
-    The data has to be placed in teh following directory structure:
-    ${year}/${geo_type: zip|county|etc.}/${shape:point|polygon}/
-
-    Which geography is used is defined by `geography` argument that defaults
-    to "zip". Only actually used geographies must have their shape files
-    for the years actually used.
     """
 
     def __init__(self, context: GridmetContext = None):
@@ -31,16 +33,20 @@ class Gridmet:
         if not context:
             context = GridmetContext(__doc__)
         self.context = context
-        self.tasks = self.collect_tasks(self.context)
+        self.tasks = self.collect_tasks()
 
-    @classmethod
-    def collect_tasks(cls, context: GridmetContext) -> List:
+    def collect_tasks(self) -> List:
         tasks = [
-            GridmetTask(context, y, v)
-                for y in context.years for v in context.variables
+            GridmetTask(self.context, y, v)
+                for y in self.context.years for v in self.context.variables
         ]
         return tasks
+
+    def execute_sequentially(self):
+        for task in self.tasks:
+            task.execute()
 
 
 if __name__ == '__main__':
     gridmet = Gridmet()
+    gridmet.execute_sequentially()
