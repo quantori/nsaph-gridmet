@@ -12,6 +12,12 @@ from gridmet_ds_def import RasterizationStrategy, GridmetVariable, \
 
 
 class ComputeGridmetTask:
+    """
+    Class describes a compute task to aggregate data over geography shapes
+
+    The data is expected in
+    `Unidata netCDF (Version 4) format <https://www.unidata.ucar.edu/software/netcdf/>`
+    """
     def __init__(self, year: int,
                  variable: GridmetVariable,
                  infile: str,
@@ -99,18 +105,30 @@ class ComputeGridmetTask:
             print(" \t{} [{}]".format(str(t3 - t1), str(t)))
 
 
-
-class GridmetTask:
-    """
-    Defines a task to download and process data for a single year and variable
-    Instances of this class can be used to parallelize processing
-    """
+class GridmetDownloadTask:
     base_metdata_url = "https://www.northwestknowledge.net/metdata/data/"
     url_pattern = base_metdata_url + "{}_{:d}.nc"
 
     @classmethod
     def get_url(cls, year:int, variable: GridmetVariable) -> str:
         return cls.url_pattern.format(variable.value, year)
+
+    def __init__(self, year: int,
+                 variable: GridmetVariable,
+                 destination: str):
+        if not os.path.isdir(destination):
+            os.makedirs(destination)
+
+        url = self.get_url(year, variable)
+        download_target = os.path.join(destination, url.split('/')[-1])
+        self.download_task = DownloadTask(download_target, [url])
+
+
+class GridmetTask:
+    """
+    Defines a task to download and process data for a single year and variable
+    Instances of this class can be used to parallelize processing
+    """
 
     @classmethod
     def destination_file_name(cls, context: GridmetContext,
@@ -144,12 +162,7 @@ class GridmetTask:
                  year: int,
                  variable: GridmetVariable):
         destination = context.raw_downloads
-        if not os.path.isdir(destination):
-            os.makedirs(destination)
-
-        url = self.get_url(year, variable)
-        download_target = os.path.join(destination, url.split('/')[-1])
-        self.download_task = DownloadTask(download_target, [url])
+        self.download_task = GridmetDownloadTask(year, variable, destination)
 
         destination = context.destination
         if not os.path.isdir(destination):

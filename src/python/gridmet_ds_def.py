@@ -4,21 +4,37 @@ from nsaph_utils.utils.context import Context, Argument, Cardinality
 
 class Geography(Enum):
     zip = "zip"
+    """Zip Code Area"""
     county = "county"
+    """County"""
 
 
 class Shape(Enum):
     point = "point"
+    """Point"""
     polygon = "polygon"
+    """Polygon"""
 
 
 class RasterizationStrategy(Enum):
+    """
+    Rasterization Strategy, see details at
+    https://pythonhosted.org/rasterstats/manual.html#rasterization-strategy
+    The default strategy is to include all pixels along the line render path
+    (for lines), or cells where the center point is within the polygon
+    (for polygons). Alternate, all_touched strategy, rasterizes the geometry
+    by including all pixels that it touches.
+    """
     DEFAULT = "default"
     ALL_TOUCHED = "all_touched"
     COMBINED = "combined"
 
 
 class GridmetVariable(Enum):
+    """
+    Climate variables available at
+    https://www.northwestknowledge.net/metdata/data/
+    """
     bi = "bi"
     erc = "erc"
     etr = "etr"
@@ -82,7 +98,9 @@ class GridmetContext(Context):
         :param doc: Optional argument, specifying what to print as documentation
         """
         self.variables = None
+        """Gridmet variables"""
         self.strategy = None
+        """Rasterization strategy"""
         self.destination = None
         self.raw_downloads = None
         self.geography = None
