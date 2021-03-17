@@ -16,12 +16,14 @@ Which geography is used is defined by `geography` argument that defaults
 to "zip". Only actually used geographies must have their shape files
 for the years actually used.
 
-##Detailed Documentation
+Detailed Documentation
+----------------------
 
 Hosted [Documentation](https://nsaph-sandbox01.rc.fas.harvard.edu/gridmet/index.html) 
 describes Python code and API
 
-##Usage
+Usage
+-----
 
     usage: gridmet.py [-h] --variable
                       {bi,erc,etr,fm100,fm1000,pet,pr,rmax,rmin,sph,srad,th,tmmn,tmmx,vpd,vs}
