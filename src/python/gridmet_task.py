@@ -16,8 +16,9 @@ class ComputeGridmetTask:
     Class describes a compute task to aggregate data over geography shapes
 
     The data is expected in
-    `Unidata netCDF (Version 4) format <https://www.unidata.ucar.edu/software/netcdf/>`
+    .. _Unidata netCDF (Version 4) format: https://www.unidata.ucar.edu/software/netcdf/
     """
+
     def __init__(self, year: int,
                  variable: GridmetVariable,
                  infile: str,
@@ -25,6 +26,17 @@ class ComputeGridmetTask:
                  strategy: RasterizationStrategy,
                  shapefile:str,
                  geography: Geography):
+        """
+
+        :param year: year
+        :param variable: Gridemt band (variable)
+        :param infile: File with source data in  NCDF4 format
+        :param outfile: Resulting CSV file
+        :param strategy: Rasterization strategy to use
+        :param shapefile: Shapefile for used collection of geographies
+        :param geography: Type of geography, e.g. zip code or county
+        """
+
         self.year = year
         self.infile = infile
         self.outfile = outfile
@@ -61,6 +73,13 @@ class ComputeGridmetTask:
 
 
     def execute(self, mode:str = "w"):
+        """
+        Executes computational task
+
+        :param mode: mode to use opening result file
+        :type mode: str
+        :return:
+        """
         print("{} => {}".format(self.infile, self.outfile))
         ds = Dataset(self.infile)
         with rasterio.open(self.infile) as rio:
@@ -111,17 +130,33 @@ class ComputeGridmetTask:
 
 
 class DownloadGridmetTask:
+    """
+    Task to download source file in NCDF4 format
+    """
+
     base_metdata_url = "https://www.northwestknowledge.net/metdata/data/"
     url_pattern = base_metdata_url + "{}_{:d}.nc"
     BLOCK_SIZE = 65536
 
     @classmethod
     def get_url(cls, year:int, variable: GridmetVariable) -> str:
+        """
+        Constructs URL given a year and band
+
+        :param year: year
+        :param variable: Gridmet band (variable)
+        :return: URL for download
+        """
         return cls.url_pattern.format(variable.value, year)
 
     def __init__(self, year: int,
                  variable: GridmetVariable,
                  destination: str):
+        """
+        :param year: year
+        :param variable: Gridmet band (variable)
+        :param destination: Destination directory for all downloads
+        """
         if not os.path.isdir(destination):
             os.makedirs(destination)
 
@@ -130,9 +165,17 @@ class DownloadGridmetTask:
         self.download_task = DownloadTask(target, [url])
 
     def target(self):
+        """
+        :return: File path for downloaded data
+        """
         return self.download_task.destination
 
     def execute(self):
+        """
+        Executes the task
+        :return: None
+        """
+
         print(str(self.download_task))
         if self.download_task.is_up_to_date():
             print("Up to date")
@@ -162,6 +205,14 @@ class GridmetTask:
     def destination_file_name(cls, context: GridmetContext,
                               year: int,
                               variable: GridmetVariable):
+        """
+        Constructs a file name for a given set of parameters
+
+        :param context: Configuration object for the pipeline
+        :param year: year
+        :param variable: Gridmet band (variable)
+        :return: `variable_geography_year.csv[.gz]`
+        """
         g = context.geography.value
         f = "{}_{}_{:d}.csv".format(variable.value, g, year)
         if context.compress:
@@ -170,6 +221,17 @@ class GridmetTask:
 
     @classmethod
     def find_shape_file(cls, context: GridmetContext, year: int, shape: Shape):
+        """
+        Finds shapefile for a given type of geographies for the
+        closest available year
+
+        :param context: Configuration object for the pipeline
+        :param year: year
+        :param shape: Shape type
+        :return: a shape file for a given year if it exists or for the latest
+            year before the given
+        """
+
         shape_file = None
         parent_dir = context.shapes_dir
         y = year
@@ -190,6 +252,11 @@ class GridmetTask:
     def __init__(self, context: GridmetContext,
                  year: int,
                  variable: GridmetVariable):
+        """
+        :param context: Configuration object for the pipeline
+        :param year: year
+        :param variable: Gridmet band (variable)
+        """
         destination = context.raw_downloads
         self.download_task = DownloadGridmetTask(year, variable, destination)
 
@@ -214,6 +281,14 @@ class GridmetTask:
         ]
 
     def execute(self):
+        """
+        Executes the task. First the download subtask is executed unless
+        the corresponding file has already been downloaded. Then the compute
+        tasks are executed
+
+        :return: None
+        """
+
         self.download_task.execute()
         for task in self.compute_tasks:
             task.execute()

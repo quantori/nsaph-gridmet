@@ -13,7 +13,9 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('src/python'))
-
+add_module_names = False
+autoclass_content = 'both'
+autodoc_member_order = 'bysource'
 
 # -- Project information -----------------------------------------------------
 
@@ -36,7 +38,8 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.imgmath',
     'sphinx.ext.viewcode',
-    # 'sphinx_paramlinks',
+    'sphinx_paramlinks',
+    'sphinx.ext.autosectionlabel',
     'recommonmark'
 ]
 

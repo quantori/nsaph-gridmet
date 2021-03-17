@@ -6,14 +6,19 @@
 Welcome to Gridmet Computational Utilities documentation!
 ==========================================================
 
+WHAT IS GRIDMET?
+----------------
+gridMET is a dataset of daily high-spatial resolution (~4-km, 1/24th degree)
+surface meteorological data covering the contiguous US from 1979-yesterday.
+The data are also known and cited as METDATA.
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
-   doc/usage
-   doc/gridmet.rst
-   doc/gridmet_ds_def
-   doc/gridmet_task
+   README
+   doc/classes
+   doc/enums
 
 Indices and tables
 ==================

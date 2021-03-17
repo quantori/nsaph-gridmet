@@ -1,4 +1,4 @@
-Main Class for Gridmet Package
+Main Class: Pipeline Object
 ==============================
 
 .. automodule:: gridmet

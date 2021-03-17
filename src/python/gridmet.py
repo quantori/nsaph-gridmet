@@ -3,7 +3,7 @@
     corresponding to geographies for which data is aggregated
     (for example, zip code areas or counties).
 
-    The data has to be placed in teh following directory structure:
+    The data has to be placed in the following directory structure:
     ${year}/${geo_type: zip|county|etc.}/${shape:point|polygon}/
 
     Which geography is used is defined by `geography` argument that defaults
@@ -22,16 +22,20 @@ from gridmet_task import GridmetTask
 class Gridmet:
     """
     Main class, describes the whole download and processing job for climate data
+
+    The pipeline consists of the collection of Task Objects
     """
 
     def __init__(self, context: GridmetContext = None):
         """
         Creates a new instance
+
         :param context: An optional GridmetContext object, if not specified,
             then it is constructed from the command line arguments
         """
+
         if not context:
-            context = GridmetContext(__doc__)
+            context = GridmetContext(__doc__).instantiate()
         self.context = context
         self.tasks = self.collect_tasks()
 
@@ -43,6 +47,12 @@ class Gridmet:
         return tasks
 
     def execute_sequentially(self):
+        """
+        Executes all tasks in the pipeline sequentially
+        without any parallelization
+        :return: None
+        """
+
         for task in self.tasks:
             task.execute()
 
