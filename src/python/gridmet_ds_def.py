@@ -13,6 +13,8 @@ class Geography(Enum):
     """Zip Code Area"""
     county = "county"
     """County"""
+    custom = "custom"
+    """User custom"""
 
 
 class Shape(Enum):
@@ -126,6 +128,20 @@ class GridmetContext(Context):
                        cardinality=Cardinality.multiple,
                        default=[Shape.polygon.value],
                        help="Type of shapes to aggregate over")
+    _points = Argument("points",
+                       cardinality=Cardinality.single,
+                       default="",
+                       help="Path to CSV file containing points")
+    _coordinates = Argument("coordinates",
+                            aliases=["xy", "coord"],
+                            cardinality=Cardinality.multiple,
+                            default="",
+                            help="Column names for coordinates")
+    _metadata = Argument("metadata",
+                            aliases=["m", "meta"],
+                            cardinality=Cardinality.multiple,
+                            default="",
+                            help="Column names for metadata")
 
     def __init__(self, doc = None):
         """
@@ -147,6 +163,12 @@ class GridmetContext(Context):
         '''Directory containing shape files for geographies'''
         self.shapes = None
         '''Type of shapes to aggregate over, e.g. points, polygons'''
+        self.points = None
+        '''Path to CSV file containing points'''
+        self.coordinates = None
+        '''Column names for coordinates'''
+        self.metadata = None
+        '''Column names for metadata'''
         super().__init__(GridmetContext, doc)
         return
 

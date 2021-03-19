@@ -1,17 +1,106 @@
 import csv
 import os
 from datetime import date, timedelta, datetime
+from typing import List
+from abc import ABC, abstractmethod
 
-import rasterio
 from netCDF4._netCDF4 import Dataset
 from nsaph_utils.utils.io_utils import DownloadTask, fopen, as_stream
-from rasterstats import zonal_stats
+from rasterstats import zonal_stats, point_query
+from shapely.geometry import Point
 
 from gridmet_ds_def import RasterizationStrategy, GridmetVariable, \
     GridmetContext, Shape, Geography
+from gridmet_tools import find_shape_file, get_nkn_url, get_variable, get_days, \
+    get_affine_transform
 
 
-class ComputeGridmetTask:
+class ComputeGridmetTask(ABC):
+    """
+    An abstract class for a computational task that processes data in
+    Unidata netCDF (Version 4) format:
+    https://www.unidata.ucar.edu/software/netcdf/
+    """
+
+    origin = date(1900, 1, 1)
+
+    def __init__(self, year: int,
+                 variable: GridmetVariable,
+                 infile: str,
+                 outfile:str):
+        """
+
+        :param year: year
+        :param variable: Gridemt band (variable)
+        :param infile: File with source data in  NCDF4 format
+        :param outfile: Resulting CSV file
+        """
+
+        self.year = year
+        self.infile = infile
+        self.outfile = outfile
+        self.variable = variable
+        self.affine = get_affine_transform(self.infile)
+
+    @classmethod
+    def get_variable(cls, dataset: Dataset,  variable: GridmetVariable):
+        return get_variable(dataset, variable.value)
+
+    @abstractmethod
+    def get_key(self):
+        pass
+
+    def prepare(self):
+        print("{} => {}".format(self.infile, self.outfile))
+        ds = Dataset(self.infile)
+        days = get_days(ds)
+        var = self.get_variable(ds, self.variable)
+        return ds, days, var
+
+    def execute(self, mode:str = "w"):
+        """
+        Executes computational task
+
+        :param mode: mode to use opening result file
+        :type mode: str
+        :return:
+        """
+
+        ds, days, var = self.prepare()
+        key = self.get_key()
+        t0 = datetime.now()
+        with fopen(self.outfile, mode) as out:
+            writer = csv.writer(out, delimiter=',', quoting=csv.QUOTE_NONE)
+            writer.writerow([self.variable.value, "date", key.lower()])
+            for idx in range(0, len(days)):
+                day = days[idx]
+                layer = ds[var][idx, :, :]
+                t1 = datetime.now()
+                self.compute_one_day(writer, day, layer, key)
+                out.flush()
+                t3 = datetime.now()
+                t = datetime.now() - t0
+                print(" \t{} [{}]".format(str(t3 - t1), str(t)))
+        return
+
+    @abstractmethod
+    def compute_one_day(self, writer, day, layer, key):
+        """
+        Computes required statistics for a single day.
+        This method is called by `execute()` and is implemented in
+        specific subclasses
+
+        :param writer: CSV Writer to output the result
+        :param day: day
+        :param layer: layer, corresponding to the day
+        :param key: unique identifier for a geography
+        :return: Nothing
+        """
+
+        pass
+
+
+class ComputeShapesTask(ComputeGridmetTask):
     """
     Class describes a compute task to aggregate data over geography shapes
 
@@ -19,12 +108,8 @@ class ComputeGridmetTask:
     .. _Unidata netCDF (Version 4) format: https://www.unidata.ucar.edu/software/netcdf/
     """
 
-    def __init__(self, year: int,
-                 variable: GridmetVariable,
-                 infile: str,
-                 outfile:str,
-                 strategy: RasterizationStrategy,
-                 shapefile:str,
+    def __init__(self, year: int, variable: GridmetVariable, infile: str,
+                 outfile: str, strategy: RasterizationStrategy, shapefile: str,
                  geography: Geography):
         """
 
@@ -37,23 +122,13 @@ class ComputeGridmetTask:
         :param geography: Type of geography, e.g. zip code or county
         """
 
-        self.year = year
-        self.infile = infile
-        self.outfile = outfile
-        self.variable = variable
+        super().__init__(year, variable, infile, outfile)
         self.strategy = strategy
         self.shapefile = shapefile
         self.geography = geography
 
-
-    @classmethod
-    def get_variable(cls, dataset: Dataset,  variable: GridmetVariable):
-        standard_name = variable.value
-        for var in dataset.variables.values():
-            if hasattr(var,"standard_name") \
-                    and var.standard_name == standard_name:
-                return var.name
-        raise Exception("Not found in the dataset: " + standard_name)
+    def get_key(self):
+        return self.geography.value.upper()
 
     @staticmethod
     def combine(p, r1, r2):
@@ -72,61 +147,91 @@ class ComputeGridmetTask:
         return mean, prop
 
 
-    def execute(self, mode:str = "w"):
-        """
-        Executes computational task
+    def compute_one_day(self, writer, day, layer, key):
+        dt = self.origin + timedelta(days=day)
+        print(dt, end='')
+        l = None
+        if self.strategy in [RasterizationStrategy.default,
+                             RasterizationStrategy.combined]:
+            stats1 = zonal_stats(self.shapefile, layer, stats="mean",
+                                 affine=self.affine, geojson_out=True,
+                                 all_touched=False)
+            l = len(stats1)
+        if self.strategy in [RasterizationStrategy.all_touched,
+                             RasterizationStrategy.combined]:
+            stats2 = zonal_stats(self.shapefile, layer, stats="mean",
+                                 affine=self.affine, geojson_out=True,
+                                 all_touched=False)
+            l = len(stats2)
 
-        :param mode: mode to use opening result file
-        :type mode: str
-        :return:
-        """
-        print("{} => {}".format(self.infile, self.outfile))
-        ds = Dataset(self.infile)
-        with rasterio.open(self.infile) as rio:
-            affine = rio.transform
-        origin = date(1900, 1, 1)
-        days = ds["day"][:]
-        t0 = datetime.now()
-        var = self.get_variable(ds, self.variable)
-        p = self.geography.value.upper()
-        with fopen(self.outfile, mode) as out:
-            writer = csv.writer(out, delimiter=',', quoting=csv.QUOTE_NONE)
-            writer.writerow([self.variable, "date", self.geography.value])
-            for idx in range(0, len(days)):
-                day = days[idx]
-                dt = origin + timedelta(days=day)
-                layer = ds[var][idx, :, :]
-                print(dt, end='')
-                t1 = datetime.now()
-                l = None
-                if self.strategy in [RasterizationStrategy.default,
-                                     RasterizationStrategy.combined]:
-                    stats1 = zonal_stats(self.shapefile, layer, stats="mean",
-                                         affine=affine, geojson_out=True,
-                                         all_touched=False)
-                    l = len(stats1)
-                if self.strategy in [RasterizationStrategy.all_touched,
-                                     RasterizationStrategy.combined]:
-                    stats2 = zonal_stats(self.shapefile, layer, stats="mean",
-                                         affine=affine, geojson_out=True,
-                                         all_touched=False)
-                    l = len(stats2)
-
-                for i in range(0, l):
-                    if self.strategy == RasterizationStrategy.combined:
-                        mean, prop = self.combine(p, stats1[i], stats2[i])
-                    elif self.strategy == RasterizationStrategy.default:
-                        mean = stats1[i]['properties']['mean']
-                        prop = stats1[i]['properties'][p]
-                    else:
-                        mean = stats2[i]['properties']['mean']
-                        prop = stats2[i]['properties'][p]
-                    writer.writerow([mean, dt.strftime("%Y-%m-%d"), prop])
-                out.flush()
-                t3 = datetime.now()
-                t = datetime.now() - t0
-                print(" \t{} [{}]".format(str(t3 - t1), str(t)))
+        for i in range(0, l):
+            if self.strategy == RasterizationStrategy.combined:
+                mean, prop = self.combine(key, stats1[i], stats2[i])
+            elif self.strategy == RasterizationStrategy.default:
+                mean = stats1[i]['properties']['mean']
+                prop = stats1[i]['properties'][key]
+            else:
+                mean = stats2[i]['properties']['mean']
+                prop = stats2[i]['properties'][key]
+            writer.writerow([mean, dt.strftime("%Y-%m-%d"), prop])
         return
+
+
+class ComputePointsTask(ComputeGridmetTask):
+    """
+    Class describes a compute task to assign data to a collection of points
+
+    The data is expected in
+    .. _Unidata netCDF (Version 4) format: https://www.unidata.ucar.edu/software/netcdf/
+    """
+
+    def __init__(self, year: int,
+                 variable: GridmetVariable,
+                 infile: str,
+                 outfile:str,
+                 points_file:str,
+                 coordinates: List,
+                 metadata: List):
+        """
+
+        :param year: year
+        :param variable: Gridemt band (variable)
+        :param infile: File with source data in  NCDF4 format
+        :param outfile: Resulting CSV file
+        :param points_file: path to a file containing coordinates of points
+            in csv format.
+        :param coordinates: A two element list of column names in csv
+            corresponding to coordinates
+        :param metadata: A list of column names in csv that should be
+            interpreted as metadata (e.g. ZIP, site_id, etc.)
+        """
+
+        super().__init__(year, variable, infile, outfile)
+        self.points = points_file
+        assert len(coordinates) == 2
+        self.coordinates = coordinates
+        self.metadata = metadata
+
+    def get_key(self):
+        return self.metadata[0]
+
+    def compute_one_day(self, writer, day, layer, key):
+        dt = self.origin + timedelta(days=day)
+        print(dt, end='')
+        with fopen(self.points, "r") as points:
+            reader = csv.DictReader(points)
+            for row in reader:
+                x = float (row[self.coordinates[0]])
+                y = float (row[self.coordinates[1]])
+                metadata = [row[p] for p in self.metadata]
+                point = Point(x,y)
+                stats = point_query(point, layer, affine=self.affine)
+                mean = stats[0]
+                writer.writerow([mean, dt.strftime("%Y-%m-%d")] + metadata)
+        return
+
+
+
 
 
 class DownloadGridmetTask:
@@ -134,8 +239,6 @@ class DownloadGridmetTask:
     Task to download source file in NCDF4 format
     """
 
-    base_metdata_url = "https://www.northwestknowledge.net/metdata/data/"
-    url_pattern = base_metdata_url + "{}_{:d}.nc"
     BLOCK_SIZE = 65536
 
     @classmethod
@@ -147,7 +250,7 @@ class DownloadGridmetTask:
         :param variable: Gridmet band (variable)
         :return: URL for download
         """
-        return cls.url_pattern.format(variable.value, year)
+        return get_nkn_url(variable.value, year)
 
     def __init__(self, year: int,
                  variable: GridmetVariable,
@@ -232,22 +335,10 @@ class GridmetTask:
             year before the given
         """
 
-        shape_file = None
         parent_dir = context.shapes_dir
-        y = year
-        while y > 1999:
-            d = os.path.join(parent_dir, "{:d}".format(y))
-            if os.path.isdir(d):
-                f = "{}/{}/ESRI{:02d}USZIP5_POLY_WGS84.shp".format(
-                    context.geography.value, shape.value,  y - 2000)
-                shape_file = os.path.join(d, f)
-                break
-            y -= 1
-        if shape_file is None:
-            raise Exception(
-                "Could not find ZIP shape file for year {:d} or earlier"
-                    .format(year))
-        return shape_file
+        geo_type = context.geography.value
+        shape_type = shape.value
+        return find_shape_file(parent_dir, year, geo_type, shape_type)
 
     def __init__(self, context: GridmetContext,
                  year: int,
@@ -266,19 +357,34 @@ class GridmetTask:
 
         result = self.destination_file_name(context, year, variable)
 
-        self.compute_tasks = [
-            ComputeGridmetTask(year,
-                               variable,
-                               self.download_task.target(),
-                               result,
-                               context.strategy,
-                               shape_file,
-                               context.geography)
-            for shape_file in [
-                self.find_shape_file(context, year, shape)
-                for shape in context.shapes
+        self.compute_tasks = []
+        if Shape.polygon in context.shapes or not context.points:
+            self.compute_tasks = [
+                ComputeShapesTask(year,
+                                  variable,
+                                  self.download_task.target(),
+                                  result,
+                                  context.strategy,
+                                  shape_file,
+                                  context.geography)
+                for shape_file in [
+                    self.find_shape_file(context, year, shape)
+                    for shape in context.shapes
+                ]
             ]
-        ]
+        if Shape.point in context.shapes and context.points:
+            self.compute_tasks += [
+                ComputePointsTask(year,
+                                  variable,
+                                  self.download_task.target(),
+                                  result,
+                                  context.points,
+                                  context.coordinates,
+                                  context.metadata)
+            ]
+        if not self.compute_tasks:
+            raise Exception("Invalid combination of arguments")
+
 
     def execute(self):
         """

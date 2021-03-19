@@ -17,3 +17,9 @@ Compute
 ^^^^^^^
 .. autoclass:: gridmet_task.ComputeGridmetTask
    :members:
+
+.. autoclass:: gridmet_task.ComputeShapesTask
+   :members:
+
+.. autoclass:: gridmet_task.ComputePointsTask
+   :members:

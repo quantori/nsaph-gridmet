@@ -19,6 +19,7 @@ The data are also known and cited as METDATA.
    README
    doc/classes
    doc/enums
+   doc/gridmet_tools
 
 Indices and tables
 ==================
