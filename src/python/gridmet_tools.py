@@ -164,6 +164,9 @@ def disaggregate(layer, factor: int):
 
     See details:
     https://www.rdocumentation.org/packages/raster/versions/3.4-5/topics/disaggregate
+
+    or, original source code:
+
     https://github.com/r-forge/raster/blob/master/pkg/raster/R/disaggregate.R
 
     :param layer:
