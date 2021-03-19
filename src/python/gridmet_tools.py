@@ -4,6 +4,7 @@ import rasterio
 
 from netCDF4._netCDF4 import Dataset
 import shapefile
+import numpy
 
 
 def get_atmos_url(year:int, variable ="PM25") -> str:
@@ -124,7 +125,7 @@ def get_days(dataset: Dataset) -> List:
     return dataset["day"][:]
 
 
-def get_affine_transform(nc_file: str):
+def get_affine_transform(nc_file: str, factor: int = 1):
     """
     Returns affine transformation for a NCDF4 dataset.
 
@@ -138,11 +139,40 @@ def get_affine_transform(nc_file: str):
     See more:
     https://rasterio.readthedocs.io/en/latest/topics/georeferencing.html
 
+    :param factor: factor used for disaggregation, None or 0 means
+        no disaggregation
     :param nc_file: path to file, containing dataset
     :return: Instance of affine transformation
     """
 
     with rasterio.open(nc_file) as rio:
         affine = rio.transform
+    if factor and factor != 1:
+        affine = rasterio.Affine(affine.a / factor,
+                                 affine.b,
+                                 affine.c,
+                                 affine.d,
+                                 affine.e / factor,
+                                 affine.f
+                                 )
     return affine
+
+
+def disaggregate(layer, factor: int):
+    """
+    Implementation of R `disaggregate` function with method == ''.
+
+    See details:
+    https://www.rdocumentation.org/packages/raster/versions/3.4-5/topics/disaggregate
+    https://github.com/r-forge/raster/blob/master/pkg/raster/R/disaggregate.R
+
+    :param layer:
+    :param factor:
+    :return:
+    """
+
+    if not factor or factor == 1:
+        return layer
+    arr = numpy.repeat(layer, factor, axis=0)
+    return numpy.repeat(arr, factor, axis=1)
 

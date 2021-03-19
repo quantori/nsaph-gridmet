@@ -5,5 +5,5 @@ requests
 netCDF4
 rasterstats
 rasterio >= 1.1.0
-shapefile
+pyshp
 

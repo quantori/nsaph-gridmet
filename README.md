@@ -63,3 +63,14 @@ Usage
       --shapes [SHAPES [SHAPES ...]]
                             Type of shapes to aggregate over, default: ['polygon']
     
+Example
+-------
+
+One can try it on `nsaph-sandbox01.rc.fas.harvard.edu` changing to folder:
+`/data/projects/gridmet/`
+
+and running the following command:
+
+`source /home/nsaph/projects/tools/gridmet/.gridmet/bin/activate && PYTHONPATH=/home/nsaph/projects/tools/gridmet/src/python python -m gridmet --var tmmx -y 2001 --shapes_dir shapes/zip_shape_files --strategy downscale`
+
+The results can be then found in data/processed folder

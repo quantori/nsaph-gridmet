@@ -12,7 +12,7 @@ from shapely.geometry import Point
 from gridmet_ds_def import RasterizationStrategy, GridmetVariable, \
     GridmetContext, Shape, Geography
 from gridmet_tools import find_shape_file, get_nkn_url, get_variable, get_days, \
-    get_affine_transform
+    get_affine_transform, disaggregate
 
 
 class ComputeGridmetTask(ABC):
@@ -40,7 +40,8 @@ class ComputeGridmetTask(ABC):
         self.infile = infile
         self.outfile = outfile
         self.variable = variable
-        self.affine = get_affine_transform(self.infile)
+        self.factor = 1
+        self.affine = None
 
     @classmethod
     def get_variable(cls, dataset: Dataset,  variable: GridmetVariable):
@@ -51,6 +52,8 @@ class ComputeGridmetTask(ABC):
         pass
 
     def prepare(self):
+        if not self.affine:
+            self.affine = get_affine_transform(self.infile, self.factor)
         print("{} => {}".format(self.infile, self.outfile))
         ds = Dataset(self.infile)
         days = get_days(ds)
@@ -123,7 +126,11 @@ class ComputeShapesTask(ComputeGridmetTask):
         """
 
         super().__init__(year, variable, infile, outfile)
-        self.strategy = strategy
+        if strategy == RasterizationStrategy.downscale:
+            self.strategy = RasterizationStrategy.default
+            self.factor = 5
+        else:
+            self.strategy = strategy
         self.shapefile = shapefile
         self.geography = geography
 
@@ -149,6 +156,8 @@ class ComputeShapesTask(ComputeGridmetTask):
 
     def compute_one_day(self, writer, day, layer, key):
         dt = self.origin + timedelta(days=day)
+        if self.factor > 1:
+            layer = disaggregate(layer, self.factor)
         print(dt, end='')
         l = None
         if self.strategy in [RasterizationStrategy.default,

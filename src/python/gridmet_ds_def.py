@@ -47,6 +47,8 @@ class RasterizationStrategy(Enum):
     Calculate statistics using both default and all_touched strategy and
     combine results, e.g. using arithmetic means 
     """
+    downscale = "downscale"
+    """Use disaggregate with factor = 5"""
 
 
 class GridmetVariable(Enum):
