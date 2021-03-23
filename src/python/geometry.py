@@ -33,10 +33,27 @@ class PointInRaster:
     def is_masked(self):
         return self.masked == self.COMPLETELY_MASKED
 
+    def array(self, raster):
+        return raster.array[self.window[0][0]:self.window[0][1],
+                self.window[1][0]:self.window[1][1]]
+
     def bilinear(self, raster) -> float:
         if self.masked == self.COMPLETELY_MASKED:
             return None
         if self.masked == self.PARTIALLY_MASKED:
             return raster.array[self.r, self.c]
-        array = raster.read(window=self.window, masked=True).array
-        return point.bilinear(array, self.x, self.y)
+        #array = raster.read(window=self.window, masked=True).array
+        array = self.array(raster)
+        #return point.bilinear(array, self.x, self.y)
+
+        x, y = self.x, self.y
+        ulv, urv, llv, lrv = array[0,0], array[0,1], array[1,0], array[1,1]
+        # ulv = raster.array[self.window[0][0]]
+        # urv = raster.array[self.window[0][1]]
+        # llv = raster.array[self.window[1][0]]
+        # lrv = raster.array[self.window[1][1]]
+        return ((llv * (1 - x) * (1 - y)) +
+                (lrv * x * (1 - y)) +
+                (ulv * (1 - x) * y) +
+                (urv * x * y))
+

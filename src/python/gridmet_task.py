@@ -265,7 +265,7 @@ class ComputePointsTask(ComputeGridmetTask):
         with fopen(self.points_file, "r") as points:
             reader = csv.DictReader(points)
             self.step = 1
-            max_len = 500000
+            max_len = 50000
             n = 0
             nn = 0
             self.points = []
