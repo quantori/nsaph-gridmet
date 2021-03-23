@@ -1,9 +1,10 @@
+netCDF4
 nsaph_utils >= 0.0.3
 numpy
 pandas
-requests
-netCDF4
+psutil
+pyshp
 rasterstats
 rasterio >= 1.1.0
-pyshp
+requests
 
