@@ -1,4 +1,4 @@
-
+library(lubridate)
 library(ncdf4)
 library(raster)
 library(sf)
@@ -18,7 +18,7 @@ zip <- function(rast, variable) {
   points <- st_as_sf(raw_points, coords = c("POINT_X", "POINT_Y"))
   geoid.in <- "ZIP"
   geoid.out <- "zip"
-  return (process_year_point(rast, points, variable, geoid.in, geoid.out))
+  return (process_year_point(rast, points, variable, geoid.in, geoid.out, N=20))
 }
 
 test <- function() {
@@ -26,18 +26,19 @@ test <- function() {
   variable <- "tmmx"
   varname <- "air_temperature"
   rast <- brick(f, varname = varname)
-  year_data <- zip(rast, variable)
-  out <- "rtst_zip.csv"
-  #year_data <- ellen(rast, variable)
-  #out <- "rtst_ellen.csv"
+  #year_data <- zip(rast, variable)
+  #out <- "rtst_zip.csv"
+  year_data <- ellen(rast, variable)
+  out <- "rtst_ellen.csv"
   fwrite(year_data, file.path("data/temp", out))
 }
 
 process_year_point <- function(rast, point, variable, geoid.in, geoid.out, N=0) {
   out <- NULL
   if (N == 0) {
-    N = nlayers(rast)
+    N <- nlayers(rast)
   }
+  cat(now())
   for (i in 1:N) {
     temp_layer <- rast[[i]]
     date <- as.Date(temp_layer@z[[1]], origin = "1900-01-01")
@@ -48,6 +49,7 @@ process_year_point <- function(rast, point, variable, geoid.in, geoid.out, N=0) 
     temp_df[, (geoid.out) := point[[geoid.in]]]
     out <- rbind(out, temp_df)
   }
+  cat(now())
 
   return(out)
 }

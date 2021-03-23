@@ -3,16 +3,24 @@ import os
 from datetime import date, timedelta, datetime
 from typing import List
 from abc import ABC, abstractmethod
+import psutil
 
 from netCDF4._netCDF4 import Dataset
 from nsaph_utils.utils.io_utils import DownloadTask, fopen, as_stream
 from rasterstats import zonal_stats, point_query
+from rasterstats.io import Raster
 from shapely.geometry import Point
 
+from geometry import PointInRaster
 from gridmet_ds_def import RasterizationStrategy, GridmetVariable, \
     GridmetContext, Shape, Geography
 from gridmet_tools import find_shape_file, get_nkn_url, get_variable, get_days, \
     get_affine_transform, disaggregate
+
+
+def count_lines(f):
+    with fopen(f, "r") as x:
+        return sum(1 for line in x)
 
 
 class ComputeGridmetTask(ABC):
@@ -39,9 +47,11 @@ class ComputeGridmetTask(ABC):
         self.year = year
         self.infile = infile
         self.outfile = outfile
-        self.variable = variable
+        self.band = variable
         self.factor = 1
         self.affine = None
+        self.dataset = None
+        self.variable = None
 
     @classmethod
     def get_variable(cls, dataset: Dataset,  variable: GridmetVariable):
@@ -55,10 +65,10 @@ class ComputeGridmetTask(ABC):
         if not self.affine:
             self.affine = get_affine_transform(self.infile, self.factor)
         print("{} => {}".format(self.infile, self.outfile))
-        ds = Dataset(self.infile)
-        days = get_days(ds)
-        var = self.get_variable(ds, self.variable)
-        return ds, days, var
+        self.dataset = Dataset(self.infile)
+        days = get_days(self.dataset)
+        self.variable = self.get_variable(self.dataset, self.band)
+        return days
 
     def execute(self, mode:str = "w"):
         """
@@ -69,15 +79,18 @@ class ComputeGridmetTask(ABC):
         :return:
         """
 
-        ds, days, var = self.prepare()
+        days = self.prepare()
+        self.execute_loop(mode, days)
+
+    def execute_loop(self, mode, days):
         key = self.get_key()
         t0 = datetime.now()
         with fopen(self.outfile, mode) as out:
             writer = csv.writer(out, delimiter=',', quoting=csv.QUOTE_NONE)
-            writer.writerow([self.variable.value, "date", key.lower()])
+            writer.writerow([self.band.value, "date", key.lower()])
             for idx in range(0, len(days)):
                 day = days[idx]
-                layer = ds[var][idx, :, :]
+                layer = self.dataset[self.variable][idx, :, :]
                 t1 = datetime.now()
                 self.compute_one_day(writer, day, layer, key)
                 out.flush()
@@ -194,6 +207,8 @@ class ComputePointsTask(ComputeGridmetTask):
     .. _Unidata netCDF (Version 4) format: https://www.unidata.ucar.edu/software/netcdf/
     """
 
+    force_standard_api = False
+
     def __init__(self, year: int,
                  variable: GridmetVariable,
                  infile: str,
@@ -216,18 +231,100 @@ class ComputePointsTask(ComputeGridmetTask):
         """
 
         super().__init__(year, variable, infile, outfile)
-        self.points = points_file
+        self.points_file = points_file
+        self.points = None
+        self.partition = False
+        mem = psutil.virtual_memory().free
+        file_size = os.stat(self.points_file).st_size
+        if self.points_file.lower().endswith(".gz"):
+            file_size *= 15
+        self.points_in_memory = None
+        if self.force_standard_api:
+            self.points_in_memory = False
+        elif mem > file_size*3:
+            n_lines = count_lines(self.points_file)
+            if n_lines < 1000000:
+                self.points_in_memory = True
+        if self.points_in_memory is None:
+            self.points_in_memory = False
+            self.partition = True
         assert len(coordinates) == 2
         self.coordinates = coordinates
         self.metadata = metadata
+        self.step = None
+        self.first_layer = None
 
     def get_key(self):
         return self.metadata[0]
 
+    def execute(self, mode: str = "w"):
+        if not self.partition:
+            super().execute(mode)
+            return
+        days = self.prepare()
+        with fopen(self.points_file, "r") as points:
+            reader = csv.DictReader(points)
+            self.step = 1
+            max_len = 500000
+            n = 0
+            nn = 0
+            self.points = []
+            for row in reader:
+                nn += 1
+                if self.add_point(row):
+                    n += 1
+                    if n > max_len:
+                        print("Read {:d} points, added to execution queue: {:d}".format(nn, n))
+                        self.execute_loop(mode, days)
+                        mode = "a"
+                        n = 0
+                        self.points = []
+                        self.step += 1
+
+        if len(self.points) > 0:
+            self.execute_loop(mode, days)
+
+    def read_points(self):
+        with fopen(self.points_file, "r") as points:
+            reader = csv.DictReader(points)
+            self.points = []
+            for row in reader:
+                self.add_point(row)
+        return
+
+    def add_point(self, row) -> bool:
+        x = float(row[self.coordinates[0]])
+        y = float(row[self.coordinates[1]])
+        metadata = [row[p] for p in self.metadata]
+        point = PointInRaster(self.first_layer, self.affine, x, y)
+        if point.is_masked():
+            return False
+        self.points.append((metadata, point))
+        return True
+
+    def prepare(self):
+        ret = super().prepare()
+        self.first_layer = Raster(self.dataset[self.variable][0, :, :],
+                                  self.affine)
+        if self.points_in_memory:
+            self.read_points()
+        return ret
+
     def compute_one_day(self, writer, day, layer, key):
         dt = self.origin + timedelta(days=day)
-        print(dt, end='')
-        with fopen(self.points, "r") as points:
+        if self.step:
+            print("{:d}:{}".format(self.step, str(dt)), end='')
+        else:
+            print(dt, end='')
+        date_string = dt.strftime("%Y-%m-%d")
+        if self.points_in_memory or self.partition:
+            self.compute_one_day_ram(writer, date_string, layer)
+        else:
+            self.compute_one_day_file(writer, date_string, layer)
+        return
+
+    def compute_one_day_file(self, writer, date_string, layer):
+        with fopen(self.points_file, "r") as points:
             reader = csv.DictReader(points)
             for row in reader:
                 x = float (row[self.coordinates[0]])
@@ -236,7 +333,16 @@ class ComputePointsTask(ComputeGridmetTask):
                 point = Point(x,y)
                 stats = point_query(point, layer, affine=self.affine)
                 mean = stats[0]
-                writer.writerow([mean, dt.strftime("%Y-%m-%d")] + metadata)
+                writer.writerow([mean, date_string] + metadata)
+        return
+
+    def compute_one_day_ram(self, writer, date_string, layer):
+        raster = Raster(layer, self.affine)
+        for row in self.points:
+            metadata, point = row
+            #stats = point_query(point, layer, affine=self.affine)
+            mean = point.bilinear(raster)
+            writer.writerow([mean, date_string] + metadata)
         return
 
 
@@ -326,7 +432,8 @@ class GridmetTask:
         :return: `variable_geography_year.csv[.gz]`
         """
         g = context.geography.value
-        f = "{}_{}_{:d}.csv".format(variable.value, g, year)
+        s = context.shapes[0].value if len(context.shapes) == 1 else "all"
+        f = "{}_{}_{}_{:d}.csv".format(variable.value, g, s, year)
         if context.compress:
             f += ".gz"
         return os.path.join(context.destination, f)
