@@ -382,6 +382,7 @@ class ComputePointsTask(ComputeGridmetTask):
                                     writer.writerow(rrow)
                                 writer.flush()
                                 tasks.remove(completed_task)
+                                break
 
         print("Read all {:d} points, added to execution queue: {:d}".format(nn, n))
         if len(points) > 0:
