@@ -118,7 +118,8 @@ class GridmetContext(Context):
                           cardinality = Cardinality.single,
                           default = "zip",
                           help = "The type of geographic area over "
-                                 + "which we aggregate data"
+                                 + "which we aggregate data",
+                          valid_values=[v.value for v in Geography]
                           )
     _shapes_dir = Argument("shapes_dir",
                            default="shapes",
@@ -129,7 +130,9 @@ class GridmetContext(Context):
     _shapes = Argument("shapes",
                        cardinality=Cardinality.multiple,
                        default=[Shape.polygon.value],
-                       help="Type of shapes to aggregate over")
+                       help="Type of shapes to aggregate over",
+                       valid_values=[v.value for v in Shape]
+                       )
     _points = Argument("points",
                        cardinality=Cardinality.single,
                        default="",
@@ -152,19 +155,38 @@ class GridmetContext(Context):
         """
 
         self.variables = None
-        '''Gridmet bands or variables :type: `GridmetVariable` '''
+        """
+        Gridmet bands or variables 
+        
+        :type: GridmetVariable 
+        """
+
         self.strategy = None
-        '''Rasterization strategy'''
+        """
+        Rasterization strategy
+        :type: RasterizationStrategy
+        """
+
         self.destination = None
         '''Destination directory for the processed files'''
         self.raw_downloads = None
         '''Directory for downloaded raw files'''
         self.geography = None
-        '''The type of geographic area over which we aggregate data'''
+        """
+        The type of geographic area over which we aggregate data
+        
+        :type: Geography
+        """
+
         self.shapes_dir = None
         '''Directory containing shape files for geographies'''
         self.shapes = None
-        '''Type of shapes to aggregate over, e.g. points, polygons'''
+        """
+        Type of shapes to aggregate over, e.g. points, polygons
+        
+        :type: Shape
+        """
+
         self.points = None
         '''Path to CSV file containing points'''
         self.coordinates = None

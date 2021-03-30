@@ -60,3 +60,4 @@ class Gridmet:
 if __name__ == '__main__':
     gridmet = Gridmet()
     gridmet.execute_sequentially()
+    print("All tasks have been executed")

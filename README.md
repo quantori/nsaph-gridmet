@@ -44,7 +44,7 @@ Usage
       --compress, -c        Use gzip compression for the result, default: True
       --variables {bi,erc,etr,fm100,fm1000,pet,pr,rmax,rmin,sph,srad,th,tmmn,tmmx,vpd,vs} [{bi,erc,etr,fm100,fm1000,pet,pr,rmax,rmin,sph,srad,th,tmmn,tmmx,vpd,vs} ...], --var {bi,erc,etr,fm100,fm1000,pet,pr,rmax,rmin,sph,srad,th,tmmn,tmmx,vpd,vs} [{bi,erc,etr,fm100,fm1000,pet,pr,rmax,rmin,sph,srad,th,tmmn,tmmx,vpd,vs} ...]
                             Gridmet bands or variables
-      --strategy {default,all_touched,combined}, -s {default,all_touched,combined}
+      --strategy {default,all_touched,combined,downscale}, -s {default,all_touched,combined,downscale}
                             Rasterization Strategy, default: default
       --destination DESTINATION, --dest DESTINATION, -d DESTINATION
                             Destination directory for the processed files,
@@ -52,7 +52,7 @@ Usage
       --raw_downloads RAW_DOWNLOADS
                             Directory for downloaded raw files, default:
                             data/downloads
-      --geography GEOGRAPHY
+      --geography {zip,county,custom}
                             The type of geographic area over which we aggregate
                             data, default: zip
       --shapes_dir SHAPES_DIR
@@ -60,8 +60,13 @@ Usage
                             Directory structure is expected to be:
                             .../${year}/${geo_type}/{point|polygon}/, default:
                             shapes
-      --shapes [SHAPES [SHAPES ...]]
+      --shapes [{point,polygon} [{point,polygon} ...]]
                             Type of shapes to aggregate over, default: ['polygon']
+      --points POINTS       Path to CSV file containing points, default:
+      --coordinates COORDINATES [COORDINATES ...], --xy COORDINATES [COORDINATES ...], --coord COORDINATES [COORDINATES ...]
+                            Column names for coordinates, default:
+      --metadata METADATA [METADATA ...], -m METADATA [METADATA ...], --meta METADATA [METADATA ...]
+                            Column names for metadata, default:
     
 Example
 -------

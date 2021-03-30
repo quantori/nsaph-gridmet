@@ -2,6 +2,26 @@ import netCDF4 as nc
 import random
 from rasterstats import zonal_stats, point_query
 
+from gridmet_ds_def import GridmetContext
+
+
+def configure(context: GridmetContext):
+    strategy = context.strategy
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 if __name__ == '__main__':
     fn = '/Users/misha/harvard/projects/data_server/nsaph/local_data/V4NA03_PM25_NA_200001_200012-RH35.nc'
