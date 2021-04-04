@@ -5,6 +5,7 @@ import rasterio
 from netCDF4._netCDF4 import Dataset
 import shapefile
 import numpy
+import geopy
 
 
 def get_atmos_url(year:int, variable ="PM25") -> str:
@@ -61,7 +62,7 @@ def get_shape_file_metadata(shape_file:str, column_names=None) -> List:
 
 
 def find_shape_file(shapes_dir: str, year: int,
-                    geography_type: str, shape_type: str):
+                    geography_type: str, shape_type: str) -> str:
     """
     Finds shapefile for a given type of geographies for the
     closest available year
@@ -179,3 +180,8 @@ def disaggregate(layer, factor: int):
     arr = numpy.repeat(layer, factor, axis=0)
     return numpy.repeat(arr, factor, axis=1)
 
+
+geolocator = geopy.Nominatim(user_agent='NSAPH')
+def get_address(latitude:float, longitude: float):
+    location = geolocator.reverse((latitude, longitude))
+    return location

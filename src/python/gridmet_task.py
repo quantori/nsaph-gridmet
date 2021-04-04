@@ -135,11 +135,11 @@ class ComputeGridmetTask(ABC):
     def execute_loop(self, mode, days):
         with fopen(self.outfile, mode) as out:
             writer = CSVWriter(out)
-            writer.writerow([self.band.value, "date", self.get_key().lower()])
+            if 'a' not in mode:
+                writer.writerow([self.band.value, "date", self.get_key().lower()])
             self.collect_data(days, writer)
 
     def collect_data(self, days: List, collector: Collector):
-        key = self.get_key()
         t0 = datetime.now()
         for idx in range(0, len(days)):
             day = days[idx]
@@ -358,6 +358,7 @@ class ComputePointsTask(ComputeGridmetTask):
                 ThreadPoolExecutor(max_workers=self.workers) as executor:
             reader = csv.DictReader(points_file)
             writer = CSVWriter(out)
+            writer.writerow([self.band.value, "date", self.get_key().lower()])
             step = 1
             n = 0
             nn = 0
@@ -384,15 +385,16 @@ class ComputePointsTask(ComputeGridmetTask):
                                 tasks.remove(completed_task)
                                 break
 
-        print("Read all {:d} points, added to execution queue: {:d}".format(nn, n))
-        if len(points) > 0:
-            self.submit_step(executor, step, days, points)
+            print("Read all {:d} points, added to execution queue: {:d}".format(nn, n))
+            if len(points) > 0:
+                self.submit_step(executor, step, days, points)
 
-        for completed_task in as_completed(tasks):
-            result = completed_task.result()
-            for rrow in result:
-                writer.writerow(rrow)
-            writer.flush()
+            for completed_task in as_completed(tasks):
+                result = completed_task.result()
+                for rrow in result:
+                    writer.writerow(rrow)
+                writer.flush()
+        return
 
     def submit_step(self, executor: Executor, step: int,
                     days: List, points: List):
