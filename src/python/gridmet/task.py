@@ -15,10 +15,10 @@ from rasterstats import zonal_stats, point_query
 from rasterstats.io import Raster
 from shapely.geometry import Point
 
-from geometry import PointInRaster
-from gridmet_ds_def import RasterizationStrategy, GridmetVariable, \
+from gridmet.geometry import PointInRaster
+from gridmet.config import RasterizationStrategy, GridmetVariable, \
     GridmetContext, Shape, Geography
-from gridmet_tools import find_shape_file, get_nkn_url, get_variable, get_days, \
+from gridmet.gridmet_tools import find_shape_file, get_nkn_url, get_variable, get_days, \
     get_affine_transform, disaggregate
 
 
@@ -81,12 +81,11 @@ class ComputeGridmetTask(ABC):
 
     origin = date(1900, 1, 1)
 
-    def __init__(self, year: int,
-                 variable: GridmetVariable,
-                 infile: str,
-                 outfile:str):
+    def __init__(self, year: int, variable: GridmetVariable, infile: str,
+                 outfile: str, date_filter=None):
         """
 
+        :param date_filter:
         :param year: year
         :param variable: Gridemt band (variable)
         :param infile: File with source data in  NCDF4 format
@@ -102,6 +101,7 @@ class ComputeGridmetTask(ABC):
         self.dataset = None
         self.variable = None
         self.parallel = {Parallel.points}
+        self.date_filter = date_filter
 
     @classmethod
     def get_variable(cls, dataset: Dataset,  variable: GridmetVariable):
@@ -111,16 +111,25 @@ class ComputeGridmetTask(ABC):
     def get_key(self):
         pass
 
+    def get_days(self):
+        days = get_days(self.dataset)
+        if self.date_filter:
+            days = [
+                day for day in days
+                    if self.date_filter.accept(self.to_date(day))
+            ]
+        return days
+
     def prepare(self):
         if not self.affine:
             self.affine = get_affine_transform(self.infile, self.factor)
         print("{} => {}".format(self.infile, self.outfile))
         self.dataset = Dataset(self.infile)
-        days = get_days(self.dataset)
+        days = self.get_days()
         self.variable = self.get_variable(self.dataset, self.band)
         return days
 
-    def execute(self, mode:str = "w"):
+    def execute(self, mode:str = "wt"):
         """
         Executes computational task
 
@@ -167,6 +176,9 @@ class ComputeGridmetTask(ABC):
 
         pass
 
+    def to_date(self, day) -> datetime.date:
+        return self.origin + timedelta(days=day)
+
 
 class ComputeShapesTask(ComputeGridmetTask):
     """
@@ -178,9 +190,10 @@ class ComputeShapesTask(ComputeGridmetTask):
 
     def __init__(self, year: int, variable: GridmetVariable, infile: str,
                  outfile: str, strategy: RasterizationStrategy, shapefile: str,
-                 geography: Geography):
+                 geography: Geography, date_filter=None):
         """
 
+        :param date_filter:
         :param year: year
         :param variable: Gridemt band (variable)
         :param infile: File with source data in  NCDF4 format
@@ -190,7 +203,7 @@ class ComputeShapesTask(ComputeGridmetTask):
         :param geography: Type of geography, e.g. zip code or county
         """
 
-        super().__init__(year, variable, infile, outfile)
+        super().__init__(year, variable, infile, outfile, date_filter)
         if strategy == RasterizationStrategy.downscale:
             self.strategy = RasterizationStrategy.default
             self.factor = 5
@@ -218,9 +231,8 @@ class ComputeShapesTask(ComputeGridmetTask):
             mean = None
         return mean, prop
 
-
     def compute_one_day(self, writer: Collector, day, layer):
-        dt = self.origin + timedelta(days=day)
+        dt = self.to_date(day)
         if self.factor > 1:
             layer = disaggregate(layer, self.factor)
         print(dt, end='')
@@ -268,7 +280,8 @@ class ComputePointsTask(ComputeGridmetTask):
                  outfile:str,
                  points_file:str,
                  coordinates: List,
-                 metadata: List):
+                 metadata: List,
+                 date_filter=None):
         """
 
         :param year: year
@@ -283,7 +296,7 @@ class ComputePointsTask(ComputeGridmetTask):
             interpreted as metadata (e.g. ZIP, site_id, etc.)
         """
 
-        super().__init__(year, variable, infile, outfile)
+        super().__init__(year, variable, infile, outfile, date_filter)
         self.points_file = points_file
         self.points = None
         self.partition = False
@@ -354,7 +367,7 @@ class ComputePointsTask(ComputeGridmetTask):
         max_tasks = self.workers * 2
         tasks = set()
         with fopen(self.points_file, "r") as points_file, \
-                fopen(self.outfile, "w") as out, \
+                fopen(self.outfile, "wt") as out, \
                 ThreadPoolExecutor(max_workers=self.workers) as executor:
             reader = csv.DictReader(points_file)
             writer = CSVWriter(out)
@@ -619,13 +632,9 @@ class GridmetTask:
         self.compute_tasks = []
         if Shape.polygon in context.shapes or not context.points:
             self.compute_tasks = [
-                ComputeShapesTask(year,
-                                  variable,
-                                  self.download_task.target(),
-                                  result,
-                                  context.strategy,
-                                  shape_file,
-                                  context.geography)
+                ComputeShapesTask(year, variable, self.download_task.target(),
+                                  result, context.strategy, shape_file,
+                                  context.geography, context.dates)
                 for shape_file in [
                     self.find_shape_file(context, year, shape)
                     for shape in context.shapes

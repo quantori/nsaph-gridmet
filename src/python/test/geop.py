@@ -9,7 +9,7 @@ import pandas
 from nsaph_utils.utils.io_utils import fopen
 from shapely.geometry import Point
 
-from gridmet_tools import find_shape_file
+from gridmet.gridmet_tools import find_shape_file
 
 
 def get_zips_dataframe(path_to_dir:str, year: int) -> geopandas.GeoDataFrame:

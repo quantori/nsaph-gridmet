@@ -27,13 +27,10 @@
     4+. If more than one column is included in metadata, the output file
         will contain more than 3 columns
 """
-import os
 from typing import List
 
-from nsaph_utils.utils.io_utils import DownloadTask
-
-from gridmet_ds_def import GridmetContext, GridmetVariable
-from gridmet_task import GridmetTask
+from gridmet.config import GridmetContext
+from gridmet.task import GridmetTask
 
 
 class Gridmet:

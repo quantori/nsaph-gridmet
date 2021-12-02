@@ -1,10 +1,34 @@
+import datetime
 from enum import IntEnum, Enum
+from typing import Optional
+
 from nsaph_utils.utils.context import Context, Argument, Cardinality
 
 var_doc_string = """
         Gridmet bands or variables. 
         :ref: `doc/bands`
 """
+
+
+class DateFilter:
+    def __init__(self, value: str):
+        self.min = None
+        self.max = None
+        if not value:
+            return
+        if ':' not in value:
+            raise ValueError("Filter spec must include ':'")
+        bounds = value.split(':')
+        self.min = datetime.date.fromisoformat(bounds[0])
+        self.max = datetime.date.fromisoformat(bounds[1])
+
+    def accept(self, day):
+        if self.min and day < self.min:
+            return False
+        if self.max and day > self.max:
+            return False
+        return True
+
 
 class Geography(Enum):
     """Type of geography"""
@@ -147,6 +171,9 @@ class GridmetContext(Context):
                             cardinality=Cardinality.multiple,
                             default="",
                             help="Column names for metadata")
+    _dates = Argument("dates",
+                      help="Filter dates - for debugging purposes only",
+                      required=False)
 
     def __init__(self, doc = None):
         """
@@ -193,6 +220,8 @@ class GridmetContext(Context):
         '''Column names for coordinates'''
         self.metadata = None
         '''Column names for metadata'''
+        self.dates: Optional[DateFilter] = None
+        '''Filter on dates - for debugging purposes only'''
         super().__init__(GridmetContext, doc)
         return
 
@@ -206,5 +235,8 @@ class GridmetContext(Context):
             return Geography[value]
         if attr == self._strategy.name:
             return RasterizationStrategy[value]
+        if attr == self._dates.name:
+            if value:
+                return DateFilter(value)
         return value
 
