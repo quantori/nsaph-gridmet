@@ -66,7 +66,7 @@ outputs:
   data:
     type: File[]
     outputBinding:
-      glob: "*/*.csv.gz"
+      glob: "data/processed/*.csv.gz"
   errors:
     type: stderr
 
