@@ -33,6 +33,7 @@ setup(
         'psutil',
         'pygeos',
         'pyshp',
+        'PyYAML',
         'rasterstats',
         'rasterio >= 1.1.0',
         'requests',

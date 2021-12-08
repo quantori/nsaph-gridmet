@@ -1,14 +1,1 @@
-geopandas
-geopy
-h5py
-netCDF4
-nsaph_utils >= 0.0.3
-numpy
-pandas
-psutil
-pygeos
-pyshp
-rasterstats
-rasterio >= 1.1.0
-requests
-
+.

@@ -42,6 +42,7 @@ inputs:
   years:
     type: string
     doc: "Years to process"
+    default: "1990:2021"
     inputBinding:
       prefix: --years
   band:
@@ -50,6 +51,11 @@ inputs:
       [Gridmet Band](https://gee.stac.cloud/WUtw2spmec7AM9rk6xMXUtStkMtbviDtHK?t=bands)
     inputBinding:
       prefix: --var
+  dates:
+    type: string?
+    doc: 'dates restriction, for testing purposes only'
+    inputBinding:
+      prefix: --dates
 
 
 outputs:
@@ -58,9 +64,9 @@ outputs:
     outputBinding:
       glob: "*.log"
   data:
-    type: File?
+    type: File[]
     outputBinding:
-      glob: "*.csv.gz"
+      glob: "*/*.csv.gz"
   errors:
     type: stderr
 

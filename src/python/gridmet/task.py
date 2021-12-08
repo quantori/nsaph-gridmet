@@ -461,7 +461,7 @@ class ComputePointsTask(ComputeGridmetTask):
     def prepare(self):
         ret = super().prepare()
         self.first_layer = Raster(self.dataset[self.variable][0, :, :],
-                                  self.affine)
+                                  self.affine, nodata=-999)
         if self.points_in_memory:
             self.read_points()
         return ret
@@ -493,16 +493,13 @@ class ComputePointsTask(ComputeGridmetTask):
         return
 
     def compute_one_day_ram(self, writer: Collector, date_string, layer, points):
-        raster = Raster(layer, self.affine)
+        raster = Raster(layer, self.affine, nodata=-999)
         for row in points:
             metadata, point = row
             #stats = point_query(point, layer, affine=self.affine)
             mean = point.bilinear(raster)
             writer.writerow([mean, date_string] + metadata)
         return
-
-
-
 
 
 class DownloadGridmetTask:
