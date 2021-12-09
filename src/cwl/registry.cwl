@@ -1,5 +1,5 @@
 #!/usr/bin/env cwl-runner
-### FTS Parser
+### Model YAML Writer
 
 cwlVersion: v1.2
 class: CommandLineTool

@@ -27,7 +27,10 @@
     4+. If more than one column is included in metadata, the output file
         will contain more than 3 columns
 """
+import logging
 from typing import List
+
+from nsaph import init_logging
 
 from gridmet.config import GridmetContext
 from gridmet.task import GridmetTask
@@ -48,6 +51,7 @@ class Gridmet:
             then it is constructed from the command line arguments
         """
 
+        init_logging(name="gridMET-Download", level=logging.INFO)
         if not context:
             context = GridmetContext(__doc__).instantiate()
         self.context = context

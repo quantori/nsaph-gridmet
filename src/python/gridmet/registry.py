@@ -34,6 +34,7 @@ class Registry:
                 "index": "all",
                 "description": "NSAPH data model for gridMET",
                 "header": True,
+                "quoting": 3,
                 "tables": {
                 }
             }
@@ -46,27 +47,27 @@ class Registry:
                 tname = "{}_{}".format(geo, bnd)
                 table = {
                     "columns": [
-                        {
-                            bnd: {
-                                "type": PG_NUMERIC_TYPE
-                            },
-                            date_column:{
-                                "type": PG_DATE_TYPE
-                            },
-                            geo:{
-                                "type": PG_INT_TYPE
-                            }
-                        }
+                        {bnd: {
+                            "type": PG_NUMERIC_TYPE
+                        }},
+                        {date_column: {
+                            "type": PG_DATE_TYPE,
+                            "source": "date"
+                        }},
+                        {geo: {
+                            "type": PG_INT_TYPE
+                        }}
                     ],
                     "primary_key": [
                         geo,
                         date_column
                     ],
-                    "indices": [
-                        {"dt_geo_idx": {
+                    "indices": {
+                        "dt_geo_idx": {
                             "columns": [date_column, geo]
-                        }}
-                    ]
+                        }
+                    }
+
 
                 }
                 domain[name]["tables"][tname] = table

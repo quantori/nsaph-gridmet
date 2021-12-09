@@ -27,6 +27,10 @@ def count_lines(f):
         return sum(1 for line in x)
 
 
+def quote(s:str) -> str:
+    return '"' + s + '"'
+
+
 class Parallel(Enum):
     points = "points"
     bands = "bands"

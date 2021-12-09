@@ -4,6 +4,7 @@
 cwlVersion: v1.2
 class: CommandLineTool
 baseCommand: [python, -m, gridmet.launcher]
+#baseCommand: echo
 
 requirements:
   InlineJavascriptRequirement: {}
@@ -39,10 +40,9 @@ inputs:
       Type of geography: zip codes or counties
     inputBinding:
       prefix: --geography
-  years:
+  year:
     type: string
-    doc: "Years to process"
-    default: "1990:2021"
+    doc: "Year to process"
     inputBinding:
       prefix: --years
   band:
@@ -57,6 +57,9 @@ inputs:
     inputBinding:
       prefix: --dates
 
+arguments:
+    - valueFrom: $(inputs.band)
+      prefix: --destination
 
 outputs:
   log:
@@ -64,10 +67,10 @@ outputs:
     outputBinding:
       glob: "*.log"
   data:
-    type: File[]
+    type: File
     outputBinding:
-      glob: "data/processed/*.csv.gz"
+      glob: $(inputs.band + "/*.csv.gz")
   errors:
     type: stderr
 
-stderr: download.err
+stderr:  $("download-" + inputs.band + "-" + inputs.year + ".err")
