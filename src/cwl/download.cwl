@@ -67,7 +67,7 @@ outputs:
     outputBinding:
       glob: "*.log"
   data:
-    type: File
+    type: File?
     outputBinding:
       glob: $(inputs.band + "/*.csv.gz")
   errors:
