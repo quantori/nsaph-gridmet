@@ -243,7 +243,9 @@ class ComputeShapesTask(ComputeGridmetTask):
         dt = self.to_date(day)
         if self.factor > 1:
             layer = disaggregate(layer, self.factor)
-        logging.info(dt)
+        logging.info("{}:{}:{}".format(
+            self.geography.value,self.band.value,str(dt))
+        )
         l = None
         if self.strategy in [RasterizationStrategy.default,
                              RasterizationStrategy.combined]:
