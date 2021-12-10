@@ -11,6 +11,10 @@ requirements:
   ScatterFeatureRequirement: {}
   MultipleInputFeatureRequirement: {}
 
+hints:
+  ResourceRequirement:
+    coresMax: 32
+
 doc: |
   Downloads, processes gridMET data and ingests it into the database
 
