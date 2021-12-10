@@ -1,4 +1,5 @@
 import csv
+import logging
 import os
 import threading
 from concurrent.futures.thread import ThreadPoolExecutor
@@ -130,7 +131,7 @@ class ComputeGridmetTask(ABC):
     def prepare(self):
         if not self.affine:
             self.affine = get_affine_transform(self.infile, self.factor)
-        print("{} => {}".format(self.infile, self.outfile))
+        logging.info("{} => {}".format(self.infile, self.outfile))
         self.dataset = Dataset(self.infile)
         days = self.get_days()
         self.variable = self.get_variable(self.dataset, self.band)
@@ -165,7 +166,7 @@ class ComputeGridmetTask(ABC):
             collector.flush()
             t3 = datetime.now()
             t = datetime.now() - t0
-            print(" \t{} [{}]".format(str(t3 - t1), str(t)))
+            logging.info(" \t{} [{}]".format(str(t3 - t1), str(t)))
         return collector
 
     @abstractmethod
@@ -242,7 +243,7 @@ class ComputeShapesTask(ComputeGridmetTask):
         dt = self.to_date(day)
         if self.factor > 1:
             layer = disaggregate(layer, self.factor)
-        print(dt, end='')
+        logging.info(dt)
         l = None
         if self.strategy in [RasterizationStrategy.default,
                              RasterizationStrategy.combined]:
@@ -357,14 +358,14 @@ class ComputePointsTask(ComputeGridmetTask):
                 if self.add_point(row):
                     n += 1
                     if n > max_len:
-                        print("Read {:d} points, added to execution queue: {:d}".format(nn, n))
+                        logging.info("Read {:d} points, added to execution queue: {:d}".format(nn, n))
                         self.execute_loop(mode, days)
                         mode = "a"
                         n = 0
                         self.points = []
                         self.step += 1
 
-        print("Read all {:d} points, added to execution queue: {:d}".format(nn, n))
+        logging.info("Read all {:d} points, added to execution queue: {:d}".format(nn, n))
         if len(self.points) > 0:
             self.execute_loop(mode, days)
 
@@ -388,7 +389,7 @@ class ComputePointsTask(ComputeGridmetTask):
                 if self.add_point(row, to=points):
                     n += 1
                     if n > max_len:
-                        print(
+                        logging.info(
                             "{:d}: Read {:d} points, added to execution queue: {:d}"
                                 .format(step, nn, n))
                         task = self.submit_step(executor, step, days, points)
@@ -405,7 +406,7 @@ class ComputePointsTask(ComputeGridmetTask):
                                 tasks.remove(completed_task)
                                 break
 
-            print("Read all {:d} points, added to execution queue: {:d}".format(nn, n))
+            logging.info("Read all {:d} points, added to execution queue: {:d}".format(nn, n))
             if len(points) > 0:
                 self.submit_step(executor, step, days, points)
 
@@ -438,10 +439,10 @@ class ComputePointsTask(ComputeGridmetTask):
                 t3 = datetime.now()
                 t = datetime.now() - t0
                 rate = (t3 - t1) / len(points) / N * 1000000
-                print("{:d}|{:d}:{} \t{} [{}]".
+                logging.info("{:d}|{:d}:{} \t{} [{}]".
                       format(tid, step, str(dt), str(rate), str(t)))
                 t1 = datetime.now()
-        print("{:d}|{:d}: completed.".format(tid, step))
+        logging.info("{:d}|{:d}: completed.".format(tid, step))
         return collector.get_result()
 
     def read_points(self):
@@ -476,9 +477,9 @@ class ComputePointsTask(ComputeGridmetTask):
     def compute_one_day(self, writer: Collector, day, layer):
         dt = self.origin + timedelta(days=day)
         if self.step:
-            print("{:d}:{}".format(self.step, str(dt)), end='')
+            logging.info("{:d}:{}".format(self.step, str(dt)))
         else:
-            print(dt, end='')
+            logging.info(dt)
         date_string = dt.strftime("%Y-%m-%d")
         if self.points_in_memory or self.partition:
             self.compute_one_day_ram(writer, date_string, layer, self.points)
@@ -554,9 +555,9 @@ class DownloadGridmetTask:
         :return: None
         """
 
-        print(str(self.download_task))
+        logging.info(str(self.download_task))
         if self.download_task.is_up_to_date():
-            print("Up to date")
+            logging.info("Up to date")
             return
         buffer = bytearray(self.BLOCK_SIZE)
         with fopen(self.target(), "wb") as writer, \
