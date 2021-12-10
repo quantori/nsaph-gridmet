@@ -22,6 +22,9 @@ from gridmet.gridmet_tools import find_shape_file, get_nkn_url, get_variable, ge
     get_affine_transform, disaggregate
 
 
+NO_DATA = -999 # I do not know what it is, but not setting it causes a warning
+
+
 def count_lines(f):
     with fopen(f, "r") as x:
         return sum(1 for line in x)
@@ -245,13 +248,13 @@ class ComputeShapesTask(ComputeGridmetTask):
                              RasterizationStrategy.combined]:
             stats1 = zonal_stats(self.shapefile, layer, stats="mean",
                                  affine=self.affine, geojson_out=True,
-                                 all_touched=False)
+                                 all_touched=False, nodata=NO_DATA)
             l = len(stats1)
         if self.strategy in [RasterizationStrategy.all_touched,
                              RasterizationStrategy.combined]:
             stats2 = zonal_stats(self.shapefile, layer, stats="mean",
                                  affine=self.affine, geojson_out=True,
-                                 all_touched=False)
+                                 all_touched=True, nodata=NO_DATA)
             l = len(stats2)
 
         key = self.get_key()
@@ -465,7 +468,7 @@ class ComputePointsTask(ComputeGridmetTask):
     def prepare(self):
         ret = super().prepare()
         self.first_layer = Raster(self.dataset[self.variable][0, :, :],
-                                  self.affine, nodata=-999)
+                                  self.affine, nodata=-NO_DATA)
         if self.points_in_memory:
             self.read_points()
         return ret
@@ -497,7 +500,7 @@ class ComputePointsTask(ComputeGridmetTask):
         return
 
     def compute_one_day_ram(self, writer: Collector, date_string, layer, points):
-        raster = Raster(layer, self.affine, nodata=-999)
+        raster = Raster(layer, self.affine, nodata=NO_DATA)
         for row in points:
             metadata, point = row
             #stats = point_query(point, layer, affine=self.affine)

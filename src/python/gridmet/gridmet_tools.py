@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import List, Optional
 import rasterio
 
 from netCDF4._netCDF4 import Dataset
@@ -61,6 +61,18 @@ def get_shape_file_metadata(shape_file:str, column_names=None) -> List:
     return shapes
 
 
+def check_shape_file(shapes_dir: str,
+                     year: int,
+                     geography_type: str,
+                     shape_type: str) -> Optional[str]:
+    d = os.path.join(shapes_dir, "{:d}".format(year))
+    if os.path.isdir(d):
+        f = "{}/{}/ESRI{:02d}USZIP5_POLY_WGS84.shp".format(
+            geography_type, shape_type,  year - 2000)
+        return os.path.join(d, f)
+    return None
+
+
 def find_shape_file(shapes_dir: str, year: int,
                     geography_type: str, shape_type: str) -> str:
     """
@@ -77,15 +89,13 @@ def find_shape_file(shapes_dir: str, year: int,
     """
 
     shape_file = None
-    y = year
-    while y > 1999:
-        d = os.path.join(shapes_dir, "{:d}".format(y))
-        if os.path.isdir(d):
-            f = "{}/{}/ESRI{:02d}USZIP5_POLY_WGS84.shp".format(
-                geography_type, shape_type,  y - 2000)
-            shape_file = os.path.join(d, f)
+    for d in [-1, 1]:
+        y = year
+        while (1980 < y < 2021) and (shape_file is None):
+            shape_file = check_shape_file(shapes_dir, y, geography_type, shape_type)
+            y += d
+        if shape_file:
             break
-        y -= 1
     if shape_file is None:
         raise Exception(
             "Could not find ZIP shape file for year {:d} or earlier"
