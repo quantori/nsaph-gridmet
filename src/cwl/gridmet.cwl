@@ -13,6 +13,7 @@ requirements:
 
 hints:
   ResourceRequirement:
+    coresMin: 24
     coresMax: 32
 
 doc: |
