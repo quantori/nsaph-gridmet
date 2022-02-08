@@ -50,10 +50,10 @@ inputs:
       Type of geography: zip codes or counties
   years:
     type: string[]
-    default: ['1999', '2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020']
+#    default: ['1999', '2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020']
   bands:
     type: string[]
-    default: ['bi', 'erc', 'etr', 'fm100', 'fm1000', 'pet', 'pr', 'rmax', 'rmin', 'sph', 'srad', 'th', 'tmmn', 'tmmx', 'vpd', 'vs']
+#    default: ['bi', 'erc', 'etr', 'fm100', 'fm1000', 'pet', 'pr', 'rmax', 'rmin', 'sph', 'srad', 'th', 'tmmn', 'tmmx', 'vpd', 'vs']
   database:
     type: File
     doc: Path to database connection file, usually database.ini
@@ -113,10 +113,24 @@ steps:
           type: string
         dates:
           type: string?
+
       steps:
         download:
           run: download.cwl
-          doc: Downloads and processes data
+          doc: Downloads data
+          scatter: year
+          scatterMethod:  nested_crossproduct
+          in:
+            year: years
+            band: band
+          out:
+            - data
+            - log
+            - errors
+
+        process:
+          run: process.cwl
+          doc: Processes data
           scatter: year
           scatterMethod:  nested_crossproduct
           in:
@@ -126,6 +140,7 @@ steps:
             year: years
             dates: dates
             band: band
+            input: download/data
           out:
             - data
             - log
@@ -137,7 +152,7 @@ steps:
           in:
             registry: model
             table: table
-            input: download/data
+            input: process/data
             database: database
             connection_name: connection_name
           out: [log, errors]
@@ -176,6 +191,13 @@ steps:
           type: File[]
           outputSource: download/errors
 
+        process_log:
+          type: File[]
+          outputSource: process/log
+        process_err:
+          type: File[]
+          outputSource: process/errors
+
         ingest_log:
           type: File
           outputSource: ingest/log
@@ -200,6 +222,8 @@ steps:
       - data
       - download_log
       - download_err
+      - process_log
+      - process_err
       - ingest_log
       - ingest_err
       - index_log
@@ -241,6 +265,21 @@ outputs:
         type: array
         items: [File]
     outputSource: process/download_err
+
+  process_log:
+    type:
+      type: array
+      items:
+        type: array
+        items: [File]
+    outputSource: process/process_log
+  process_err:
+    type:
+      type: array
+      items:
+        type: array
+        items: [File]
+    outputSource: process/process_err
 
   ingest_log:
     type: File[]

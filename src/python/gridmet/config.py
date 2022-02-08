@@ -242,7 +242,6 @@ class GridmetContext(Context):
         self.dates: Optional[DateFilter] = None
         '''Filter on dates - for debugging purposes only'''
         super().__init__(GridmetContext, doc)
-        return
 
     def validate(self, attr, value):
         value = super().validate(attr, value)
