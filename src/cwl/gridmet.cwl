@@ -43,17 +43,17 @@ inputs:
     default: ""
     doc: HTTP/HTTPS Proxy if required
   shapes:
-    type: Directory
+    type: Directory?
   geography:
     type: string
     doc: |
       Type of geography: zip codes or counties
   years:
     type: string[]
-    default: ['1999', '2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020']
+#    default: ['1999', '2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020']
   bands:
     type: string[]
-    default: ['bi', 'erc', 'etr', 'fm100', 'fm1000', 'pet', 'pr', 'rmax', 'rmin', 'sph', 'srad', 'th', 'tmmn', 'tmmx', 'vpd', 'vs']
+#    default: ['bi', 'erc', 'etr', 'fm100', 'fm1000', 'pet', 'pr', 'rmax', 'rmin', 'sph', 'srad', 'th', 'tmmn', 'tmmx', 'vpd', 'vs']
   database:
     type: File
     doc: Path to database connection file, usually database.ini
@@ -63,7 +63,6 @@ inputs:
   dates:
     type: string?
     doc: 'dates restriction, for testing purposes only'
-
 
 steps:
   registry:
@@ -98,7 +97,7 @@ steps:
         model:
           type: File
         shapes:
-          type: Directory
+          type: Directory?
         geography:
           type: string
         years:
@@ -113,10 +112,31 @@ steps:
           type: string
         dates:
           type: string?
+
       steps:
         download:
           run: download.cwl
-          doc: Downloads and processes data
+          doc: Downloads data
+          scatter: year
+          scatterMethod:  nested_crossproduct
+          in:
+            year: years
+            band: band
+          out:
+            - data
+            - log
+            - errors
+
+        get_shapes:
+          run: get_shapes.cwl
+          in:
+            year: years
+            proxy: proxy
+          out: [shape_files]
+
+        process:
+          run: process.cwl
+          doc: Processes data
           scatter: year
           scatterMethod:  nested_crossproduct
           in:
@@ -126,10 +146,11 @@ steps:
             year: years
             dates: dates
             band: band
+            input: download/data
+            shape_files: get_shapes/shape_files
           out:
             - data
             - log
-            - errors
 
         ingest:
           run: ingest.cwl
@@ -137,7 +158,7 @@ steps:
           in:
             registry: model
             table: table
-            input: download/data
+            input: process/data
             database: database
             connection_name: connection_name
           out: [log, errors]
@@ -166,15 +187,12 @@ steps:
             connection_name: connection_name
           out: [log, errors]
       outputs:
-        data:
+        process_data:
           type: File[]
-          outputSource: download/data
-        download_log:
+          outputSource: process/data
+        process_log:
           type: File[]
-          outputSource: download/log
-        download_err:
-          type: File[]
-          outputSource: download/errors
+          outputSource: process/log
 
         ingest_log:
           type: File
@@ -197,9 +215,8 @@ steps:
           type: File
           outputSource: vacuum/errors
     out:
-      - data
-      - download_log
-      - download_err
+      - process_data
+      - process_log
       - ingest_log
       - ingest_err
       - index_log
@@ -216,9 +233,6 @@ outputs:
   registry_log:
     type: File?
     outputSource: registry/log
-  registry_err:
-    type: File?
-    outputSource: registry/errors
 
   data:
     type:
@@ -226,21 +240,15 @@ outputs:
       items:
         type: array
         items: [File]
-    outputSource: process/data
-  download_log:
+    outputSource: process/process_data
+
+  process_log:
     type:
       type: array
       items:
         type: array
         items: [File]
-    outputSource: process/download_log
-  download_err:
-    type:
-      type: array
-      items:
-        type: array
-        items: [File]
-    outputSource: process/download_err
+    outputSource: process/process_log
 
   ingest_log:
     type: File[]

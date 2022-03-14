@@ -193,6 +193,11 @@ class GridmetContext(Context):
     _dates = Argument("dates",
                       help="Filter dates - for debugging purposes only",
                       required=False)
+    _shape_files = Argument("shape_files",
+                       cardinality=Cardinality.multiple,
+                       default="",
+                       help="Path to shape files",
+                       )
 
     def __init__(self, doc = None):
         """
@@ -232,6 +237,7 @@ class GridmetContext(Context):
         
         :type: Shape
         """
+        self.shape_files = None
 
         self.points = None
         '''Path to CSV file containing points'''
@@ -242,7 +248,6 @@ class GridmetContext(Context):
         self.dates: Optional[DateFilter] = None
         '''Filter on dates - for debugging purposes only'''
         super().__init__(GridmetContext, doc)
-        return
 
     def validate(self, attr, value):
         value = super().validate(attr, value)
@@ -258,4 +263,3 @@ class GridmetContext(Context):
             if value:
                 return DateFilter(value)
         return value
-

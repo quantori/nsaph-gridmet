@@ -21,63 +21,31 @@
 
 cwlVersion: v1.2
 class: CommandLineTool
-baseCommand: [python, -m, gridmet.launcher]
-#baseCommand: echo
+baseCommand: [wget]
 
 requirements:
   InlineJavascriptRequirement: {}
-  EnvVarRequirement:
-    envDef:
-      HTTP_PROXY: "$('proxy' in inputs? inputs.proxy: null)"
-      HTTPS_PROXY: "$('proxy' in inputs? inputs.proxy: null)"
-      NO_PROXY: "localhost,127.0.0.1,172.17.0.1"
-
 
 doc: |
   This tool downloads gridMET data from Atmospheric Composition Analysis Group
   and then preprocesses it to aggregate over shapes (zip codes or counties)
 
 inputs:
-  proxy:
-    type: string?
-    default: ""
-    doc: HTTP/HTTPS Proxy if required
-  strategy:
-    type: string
-    default: downscale
-    inputBinding:
-      prefix: --strategy
-    doc: "Rasterization strategy"
-  shapes:
-    type: Directory
-    inputBinding:
-      prefix: --shapes_dir
-  geography:
-    type: string
-    doc: |
-      Type of geography: zip codes or counties
-    inputBinding:
-      prefix: --geography
   year:
     type: string
     doc: "Year to process"
-    inputBinding:
-      prefix: --years
   band:
     type: string
     doc: |
       [Gridmet Band](https://gee.stac.cloud/WUtw2spmec7AM9rk6xMXUtStkMtbviDtHK?t=bands)
-    inputBinding:
-      prefix: --var
-  dates:
-    type: string?
-    doc: 'dates restriction, for testing purposes only'
-    inputBinding:
-      prefix: --dates
 
 arguments:
-    - valueFrom: $(inputs.band)
-      prefix: --destination
+  - position: 1
+    valueFrom: |
+      ${
+          var base = "https://www.northwestknowledge.net/metdata/data/";
+          return base + inputs.band + "_" + inputs.year + ".nc";
+      }
 
 outputs:
   log:
@@ -87,8 +55,8 @@ outputs:
   data:
     type: File?
     outputBinding:
-      glob: $(inputs.band + "/*.csv.gz")
+      glob: "*.nc"
   errors:
     type: stderr
 
-stderr:  $("download-" + inputs.band + "-" + inputs.year + ".err")
+stderr: registry.err
