@@ -151,6 +151,7 @@ steps:
           out:
             - data
             - log
+            - errors
 
         ingest:
           run: ingest.cwl
@@ -193,6 +194,9 @@ steps:
         process_log:
           type: File[]
           outputSource: process/log
+        process_err:
+          type: File[]
+          outputSource: process/errors
 
         ingest_log:
           type: File
@@ -215,6 +219,10 @@ steps:
           type: File
           outputSource: vacuum/errors
     out:
+      - data
+      - download_log
+      - download_err
+      - process_err
       - process_data
       - process_log
       - ingest_log
@@ -233,6 +241,9 @@ outputs:
   registry_log:
     type: File?
     outputSource: registry/log
+  registry_err:
+    type: File?
+    outputSource: registry/errors
 
   data:
     type:
@@ -240,7 +251,21 @@ outputs:
       items:
         type: array
         items: [File]
-    outputSource: process/process_data
+    outputSource: process/data
+  download_log:
+    type:
+      type: array
+      items:
+        type: array
+        items: [File]
+    outputSource: process/download_log
+  download_err:
+    type:
+      type: array
+      items:
+        type: array
+        items: [File]
+    outputSource: process/download_err
 
   process_log:
     type:
@@ -249,6 +274,13 @@ outputs:
         type: array
         items: [File]
     outputSource: process/process_log
+  process_err:
+    type:
+      type: array
+      items:
+        type: array
+        items: [File]
+    outputSource: process/process_err
 
   ingest_log:
     type: File[]

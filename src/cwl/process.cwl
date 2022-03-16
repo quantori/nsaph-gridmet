@@ -101,3 +101,7 @@ outputs:
     type: File?
     outputBinding:
       glob: $(inputs.band + "/*.csv.gz")
+  errors:
+    type: stderr
+
+stderr: registry.err
