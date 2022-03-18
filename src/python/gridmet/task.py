@@ -243,9 +243,18 @@ class ComputeShapesTask(ComputeGridmetTask):
         return self.geography.value.upper()
 
     @staticmethod
-    def combine(p, r1, r2):
-        prop = r1['properties'][p]
-        assert prop == r2['properties'][p]
+    def determine_key(record) -> str:
+        if "ZIP" in record['properties']:
+            return "ZIP"
+        elif "ZCTA5CE10" in record['properties']:
+            return "ZCTA5CE10"
+        else:
+            raise ValueError("Unknown shape format, no ZIP neither ZCTA5CE10")
+
+    @staticmethod
+    def combine(key, r1, r2):
+        prop = r1['properties'][key]
+        assert prop == r2['properties'][key]
         m1 = r1['properties']['mean']
         m2 = r2['properties']['mean']
         if m1 and m2:
@@ -266,6 +275,8 @@ class ComputeShapesTask(ComputeGridmetTask):
             self.geography.value,self.band.value,str(dt))
         )
         l = None
+        stats1 = []
+        stats2 = []
         if self.strategy in [RasterizationStrategy.default,
                              RasterizationStrategy.combined]:
             stats1 = zonal_stats(self.shapefile, layer, stats="mean",
@@ -279,8 +290,10 @@ class ComputeShapesTask(ComputeGridmetTask):
                                  all_touched=True, nodata=NO_DATA)
             l = len(stats2)
 
-        key = self.get_key()
         for i in range(0, l):
+            record = stats1[0] if stats1 else stats2[0]
+            key = self.determine_key(record)
+
             if self.strategy == RasterizationStrategy.combined:
                 mean, prop = self.combine(key, stats1[i], stats2[i])
             elif self.strategy == RasterizationStrategy.default:
@@ -656,7 +669,16 @@ class GridmetTask:
         result = self.destination_file_name(context, year, variable)
 
         self.compute_tasks = []
-        if Shape.polygon in context.shapes or not context.points:
+
+        if context.shape_files:
+            self.compute_tasks = [
+                ComputeShapesTask(year, variable, self.download_task.target(),
+                                  result, context.strategy, shape_filename,
+                                  context.geography, context.dates)
+                for shape_filename in context.shape_files
+            ]
+
+        elif Shape.polygon in context.shapes or not context.points:
             self.compute_tasks = [
                 ComputeShapesTask(year, variable, self.download_task.target(),
                                   result, context.strategy, shape_file,
@@ -666,6 +688,7 @@ class GridmetTask:
                     for shape in context.shapes
                 ]
             ]
+
         if Shape.point in context.shapes and context.points:
             self.compute_tasks += [
                 ComputePointsTask(year,
@@ -679,7 +702,6 @@ class GridmetTask:
         if not self.compute_tasks:
             raise Exception("Invalid combination of arguments")
 
-
     def execute(self):
         """
         Executes the task. First the download subtask is executed unless
@@ -692,5 +714,3 @@ class GridmetTask:
         self.download_task.execute()
         for task in self.compute_tasks:
             task.execute()
-
-

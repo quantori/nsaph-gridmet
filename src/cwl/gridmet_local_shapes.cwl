@@ -4,7 +4,7 @@
 #
 #  Developed by Research Software Engineering,
 #  Faculty of Arts and Sciences, Research Computing (FAS RC)
-#  Author: Michael A Bouzinier
+#  Author: Quantori LLC
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -63,6 +63,15 @@ inputs:
   dates:
     type: string?
     doc: 'dates restriction, for testing purposes only'
+  nc:
+    type: File
+  shape_files:
+    type: File[]
+    secondaryFiles:
+      - "^.dbf"
+      - "^.shx"
+      - "^.prj"
+      - "^.cpg"
 
 steps:
   registry:
@@ -86,6 +95,8 @@ steps:
       band: bands
       database: database
       connection_name: connection_name
+      nc: nc
+      shape_files: shape_files
       table:
         valueFrom: $(inputs.geography + '_' + inputs.band)
 
@@ -112,28 +123,12 @@ steps:
           type: string
         dates:
           type: string?
+        nc:
+          type: File
+        shape_files:
+          type: File[]
 
       steps:
-        download:
-          run: download.cwl
-          doc: Downloads data
-          scatter: year
-          scatterMethod:  nested_crossproduct
-          in:
-            year: years
-            band: band
-          out:
-            - data
-            - log
-            - errors
-
-        get_shapes:
-          run: get_shapes.cwl
-          in:
-            year: years
-            proxy: proxy
-          out: [shape_files]
-
         process:
           run: process.cwl
           doc: Processes data
@@ -146,12 +141,11 @@ steps:
             year: years
             dates: dates
             band: band
-            input: download/data
-            shape_files: get_shapes/shape_files
+            input: nc
+            shape_files: shape_files
           out:
             - data
             - log
-            - errors
 
         ingest:
           run: ingest.cwl
@@ -194,9 +188,6 @@ steps:
         process_log:
           type: File[]
           outputSource: process/log
-        process_err:
-          type: File[]
-          outputSource: process/errors
 
         ingest_log:
           type: File
@@ -219,10 +210,6 @@ steps:
           type: File
           outputSource: vacuum/errors
     out:
-      - data
-      - download_log
-      - download_err
-      - process_err
       - process_data
       - process_log
       - ingest_log
@@ -241,9 +228,6 @@ outputs:
   registry_log:
     type: File?
     outputSource: registry/log
-  registry_err:
-    type: File?
-    outputSource: registry/errors
 
   data:
     type:
@@ -251,21 +235,7 @@ outputs:
       items:
         type: array
         items: [File]
-    outputSource: process/data
-  download_log:
-    type:
-      type: array
-      items:
-        type: array
-        items: [File]
-    outputSource: process/download_log
-  download_err:
-    type:
-      type: array
-      items:
-        type: array
-        items: [File]
-    outputSource: process/download_err
+    outputSource: process/process_data
 
   process_log:
     type:
@@ -274,13 +244,6 @@ outputs:
         type: array
         items: [File]
     outputSource: process/process_log
-  process_err:
-    type:
-      type: array
-      items:
-        type: array
-        items: [File]
-    outputSource: process/process_err
 
   ingest_log:
     type: File[]

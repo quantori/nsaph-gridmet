@@ -49,7 +49,7 @@ inputs:
       prefix: --strategy
     doc: "Rasterization strategy"
   shapes:
-    type: Directory
+    type: Directory?
     inputBinding:
       prefix: --shapes_dir
   geography:
@@ -77,13 +77,18 @@ inputs:
   input:
     type: File[]
     doc: "Downloaded file"
+  shape_files:
+    type: File[]
+    doc: "Paths to shape files"
+    inputBinding:
+      prefix: --shape_files
 
 arguments:
   - valueFrom: $(inputs.band)
     prefix: --destination
   - valueFrom: |
       ${
-          return inputs.input[0]["dirname"];
+          return inputs.input["dirname"];
       }
     prefix: --raw_downloads
 
