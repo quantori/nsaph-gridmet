@@ -21,26 +21,26 @@ import csv
 import logging
 import os
 import threading
-from concurrent.futures.thread import ThreadPoolExecutor
+from abc import ABC, abstractmethod
 from concurrent.futures import Executor, as_completed
+from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import date, timedelta, datetime
 from enum import Enum
 from typing import List
-from abc import ABC, abstractmethod
-import psutil
 
+import psutil
 from netCDF4._netCDF4 import Dataset
-from nsaph_utils.utils.io_utils import DownloadTask, fopen, as_stream
-from rasterstats import zonal_stats, point_query
+from rasterstats import point_query
 from rasterstats.io import Raster
 from shapely.geometry import Point
 
+from gridmet.config import GridmetVariable, GridmetContext, Shape
 from gridmet.geometry import PointInRaster
-from gridmet.config import RasterizationStrategy, GridmetVariable, \
-    GridmetContext, Shape, Geography
 from gridmet.gridmet_tools import find_shape_file, get_nkn_url, get_variable, get_days, \
     get_affine_transform, disaggregate
-
+from nsaph_gis.compute_shape import StatsCounter
+from nsaph_gis.constants import Geography, RasterizationStrategy
+from nsaph_utils.utils.io_utils import DownloadTask, fopen, as_stream
 
 NO_DATA = -999 # I do not know what it is, but not setting it causes a warning
 
@@ -231,79 +231,27 @@ class ComputeShapesTask(ComputeGridmetTask):
         """
 
         super().__init__(year, variable, infile, outfile, date_filter)
+
         if strategy == RasterizationStrategy.downscale:
-            self.strategy = RasterizationStrategy.default
             self.factor = 5
-        else:
-            self.strategy = strategy
+
+        self.strategy = strategy
         self.shapefile = shapefile
         self.geography = geography
 
     def get_key(self):
         return self.geography.value.upper()
 
-    @staticmethod
-    def determine_key(record) -> str:
-        if "ZIP" in record['properties']:
-            return "ZIP"
-        elif "ZCTA5CE10" in record['properties']:
-            return "ZCTA5CE10"
-        else:
-            raise ValueError("Unknown shape format, no ZIP neither ZCTA5CE10")
-
-    @staticmethod
-    def combine(key, r1, r2):
-        prop = r1['properties'][key]
-        assert prop == r2['properties'][key]
-        m1 = r1['properties']['mean']
-        m2 = r2['properties']['mean']
-        if m1 and m2:
-            mean = (m1 + m2) / 2
-        elif m2:
-            mean = m2
-        elif m1:
-            raise AssertionError("m1 && !m2")
-        else:
-            mean = None
-        return mean, prop
-
     def compute_one_day(self, writer: Collector, day, layer):
         dt = self.to_date(day)
+
         if self.factor > 1:
             layer = disaggregate(layer, self.factor)
-        logging.info("{}:{}:{}".format(
-            self.geography.value,self.band.value,str(dt))
-        )
-        l = None
-        stats1 = []
-        stats2 = []
-        if self.strategy in [RasterizationStrategy.default,
-                             RasterizationStrategy.combined]:
-            stats1 = zonal_stats(self.shapefile, layer, stats="mean",
-                                 affine=self.affine, geojson_out=True,
-                                 all_touched=False, nodata=NO_DATA)
-            l = len(stats1)
-        if self.strategy in [RasterizationStrategy.all_touched,
-                             RasterizationStrategy.combined]:
-            stats2 = zonal_stats(self.shapefile, layer, stats="mean",
-                                 affine=self.affine, geojson_out=True,
-                                 all_touched=True, nodata=NO_DATA)
-            l = len(stats2)
 
-        for i in range(0, l):
-            record = stats1[0] if stats1 else stats2[0]
-            key = self.determine_key(record)
+        logging.info("%s:%s:%s", self.geography.value, self.band.value, dt)
 
-            if self.strategy == RasterizationStrategy.combined:
-                mean, prop = self.combine(key, stats1[i], stats2[i])
-            elif self.strategy == RasterizationStrategy.default:
-                mean = stats1[i]['properties']['mean']
-                prop = stats1[i]['properties'][key]
-            else:
-                mean = stats2[i]['properties']['mean']
-                prop = stats2[i]['properties'][key]
-            writer.writerow([mean, dt.strftime("%Y-%m-%d"), prop])
-        return
+        for record in StatsCounter.process(self.strategy, self.shapefile, self.affine, layer):
+            writer.writerow([record.mean, dt.strftime("%Y-%m-%d"), record.prop])
 
 
 class ComputePointsTask(ComputeGridmetTask):

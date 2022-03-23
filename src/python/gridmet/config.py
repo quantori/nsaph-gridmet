@@ -18,9 +18,10 @@
 #
 
 import datetime
-from enum import IntEnum, Enum
+from enum import Enum
 from typing import Optional
 
+from nsaph_gis.constants import Geography, RasterizationStrategy
 from nsaph_utils.utils.context import Context, Argument, Cardinality
 
 var_doc_string = """
@@ -49,17 +50,6 @@ class DateFilter:
         return True
 
 
-class Geography(Enum):
-    """Type of geography"""
-
-    zip = "zip"
-    """Zip Code Area"""
-    county = "county"
-    """County"""
-    custom = "custom"
-    """User custom"""
-
-
 class Shape(Enum):
     """Type of shape"""
 
@@ -67,31 +57,6 @@ class Shape(Enum):
     """Point"""
     polygon = "polygon"
     """Polygon"""
-
-
-class RasterizationStrategy(Enum):
-    """
-    Rasterization Strategy, see details at
-    https://pythonhosted.org/rasterstats/manual.html#rasterization-strategy
-    """
-    default = "default"
-    """
-    The default strategy is to include all pixels along the line render path
-    (for lines), or cells where the center point is within the polygon
-    (for polygons). 
-    """
-    all_touched = "all_touched"
-    """
-    Alternate, all_touched strategy, rasterizes the geometry
-    by including all pixels that it touches.
-    """
-    combined = "combined"
-    """
-    Calculate statistics using both default and all_touched strategy and
-    combine results, e.g. using arithmetic means 
-    """
-    downscale = "downscale"
-    """Use disaggregate with factor = 5"""
 
 
 class GridmetVariable(Enum):

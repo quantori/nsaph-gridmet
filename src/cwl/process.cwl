@@ -75,7 +75,7 @@ inputs:
     inputBinding:
       prefix: --dates
   input:
-    type: File[]
+    type: File
     doc: "Downloaded file"
   shape_files:
     type: File[]
