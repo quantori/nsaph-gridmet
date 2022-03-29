@@ -35,7 +35,7 @@ from rasterstats.io import Raster
 from shapely.geometry import Point
 
 from gridmet.config import GridmetVariable, GridmetContext, Shape
-from gridmet.geometry import PointInRaster
+from nsaph_gis.geometry import PointInRaster
 from gridmet.gridmet_tools import find_shape_file, get_nkn_url, get_variable, get_days, \
     get_affine_transform, disaggregate
 from nsaph_gis.compute_shape import StatsCounter
@@ -317,13 +317,7 @@ class ComputePointsTask(ComputeGridmetTask):
         return self.metadata[0]
 
     def execute(self, mode: str = "w"):
-        if not self.partition:
-            super().execute(mode)
-            return
-        if self.workers > 1:
-            self.execute_parallel()
-        else:
-            self.execute_sequentially()
+        self.execute_parallel()
 
     def execute_sequentially(self):
         days = self.prepare()
