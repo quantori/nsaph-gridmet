@@ -140,7 +140,7 @@ class ComputeGridmetTask(ABC):
         pass
 
     def get_days(self):
-        days = get_days(self.dataset)[:10]
+        days = get_days(self.dataset)[:1]
         if self.date_filter:
             days = [
                 day for day in days
