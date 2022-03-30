@@ -28,6 +28,7 @@ from datetime import date, timedelta, datetime
 from enum import Enum
 from typing import List
 
+from tqdm import tqdm
 import psutil
 from netCDF4._netCDF4 import Dataset
 from rasterstats import point_query
@@ -139,7 +140,7 @@ class ComputeGridmetTask(ABC):
         pass
 
     def get_days(self):
-        days = get_days(self.dataset)
+        days = get_days(self.dataset)[:10]
         if self.date_filter:
             days = [
                 day for day in days
@@ -317,108 +318,69 @@ class ComputePointsTask(ComputeGridmetTask):
         return self.metadata[0]
 
     def execute(self, mode: str = "w"):
-        self.execute_parallel()
-
-    def execute_sequentially(self):
         days = self.prepare()
-        with fopen(self.points_file, "r") as points_file:
-            reader = csv.DictReader(points_file)
-            self.step = 1
-            max_len = 500000
-            n = 0
-            nn = 0
-            self.points = []
-            mode = "w"
-            for row in reader:
-                nn += 1
-                if self.add_point(row):
-                    n += 1
-                    if n > max_len:
-                        logging.info("Read {:d} points, added to execution queue: {:d}".format(nn, n))
-                        self.execute_loop(mode, days)
-                        mode = "a"
-                        n = 0
-                        self.points = []
-                        self.step += 1
 
-        logging.info("Read all {:d} points, added to execution queue: {:d}".format(nn, n))
-        if len(self.points) > 0:
-            self.execute_loop(mode, days)
+        print("DAYS", len(days), repr(days))
+        print("METADATA", self.metadata)
 
-    def execute_parallel(self):
-        days = self.prepare()
-        max_len = 50000
-        max_tasks = self.workers * 2
-        tasks = set()
+        logging.info("Prepare rasters")
+        rasters = {}
+        for day_number in tqdm(range(len(days)), total=len(days)):
+            layer = self.dataset[self.variable][day_number, :, :]
+            raster = Raster(layer, self.affine, nodata=NO_DATA)
+            rasters[day_number] = raster
+
+        logging.info("Process file")
         with fopen(self.points_file, "r") as points_file, \
-                fopen(self.outfile, "wt") as out, \
-                ThreadPoolExecutor(max_workers=self.workers) as executor:
+                fopen(self.outfile, "wt") as out:
             reader = csv.DictReader(points_file)
             writer = CSVWriter(out)
             writer.writerow([self.band.value, "date", self.get_key().lower()])
-            step = 1
-            n = 0
-            nn = 0
-            points = []
-            for row in reader:
-                nn += 1
-                if self.add_point(row, to=points):
-                    n += 1
-                    if n > max_len:
-                        logging.info(
-                            "{:d}: Read {:d} points, added to execution queue: {:d}"
-                                .format(step, nn, n))
-                        task = self.submit_step(executor, step, days, points)
-                        tasks.add(task)
-                        n = 0
-                        points = []
-                        step += 1
-                        if (len(tasks) > max_tasks):
-                            for completed_task in as_completed(tasks):
-                                result = completed_task.result()
-                                for rrow in result:
-                                    writer.writerow(rrow)
-                                writer.flush()
-                                tasks.remove(completed_task)
-                                break
 
-            logging.info("Read all {:d} points, added to execution queue: {:d}".format(nn, n))
-            if len(points) > 0:
-                self.submit_step(executor, step, days, points)
+            for n, row in enumerate(tqdm(reader)):
+                point = self.make_point(row)
+                if point.is_masked():
+                    continue
 
-            for completed_task in as_completed(tasks):
-                result = completed_task.result()
-                for rrow in result:
-                    writer.writerow(rrow)
-                writer.flush()
+                metadata = [row[p] for p in self.metadata]
+
+                for day_number in range(len(days)):
+                    dt = self.origin + timedelta(days=days[day_number])
+
+                    mean = point.bilinear(rasters[day_number])
+
+                    writer.writerow([mean, dt] + metadata)
+
+                if n % 10 ^ 4:
+                    writer.flush()
+
         return
 
-    def submit_step(self, executor: Executor, step: int,
-                    days: List, points: List):
-        collector = ListCollector()
-        future = executor.submit(self.execute_step,
-                                 step, days, points, collector)
-        return future
 
-    def execute_step(self, step: int, days: List, points: List,
-                     collector: ListCollector):
-        t0 = datetime.now()
-        tid = threading.get_ident()
-        N = 50
-        t1 = datetime.now()
+
+
+
+
+
+
+
+    def submit_step(self, days: List, points: List):
+        collector = ListCollector()
         for idx in range(0, len(days)):
             dt = self.origin + timedelta(days=days[idx])
             layer = self.dataset[self.variable][idx, :, :]
             self.compute_one_day_ram(collector, dt, layer, points)
+
+            raster = Raster(layer, self.affine, nodata=NO_DATA)
+            for row in points:
+                metadata, point = row
+                # stats = point_query(point, layer, affine=self.affine)
+                mean = point.bilinear(raster)
+                writer.writerow([mean, date_string] + metadata)
+            return
+
             collector.flush()
-            if (idx % N) == N - 1:
-                t3 = datetime.now()
-                t = datetime.now() - t0
-                rate = (t3 - t1) / len(points) / N * 1000000
-                logging.info("{:d}|{:d}:{} \t{} [{}]".
-                      format(tid, step, str(dt), str(rate), str(t)))
-                t1 = datetime.now()
-        logging.info("{:d}|{:d}: completed.".format(tid, step))
+        logging.info("completed.")
         return collector.get_result()
 
     def read_points(self):
@@ -428,6 +390,12 @@ class ComputePointsTask(ComputeGridmetTask):
             for row in reader:
                 self.add_point(row)
         return
+
+    def make_point(self, row) -> PointInRaster:
+        x = float(row[self.coordinates[0]])
+        y = float(row[self.coordinates[1]])
+        point = PointInRaster(self.first_layer, self.affine, x, y)
+        return point
 
     def add_point(self, row, to: List = None) -> bool:
         x = float(row[self.coordinates[0]])
@@ -446,8 +414,6 @@ class ComputePointsTask(ComputeGridmetTask):
         ret = super().prepare()
         self.first_layer = Raster(self.dataset[self.variable][0, :, :],
                                   self.affine, nodata=-NO_DATA)
-        if self.points_in_memory:
-            self.read_points()
         return ret
 
     def compute_one_day(self, writer: Collector, day, layer):
