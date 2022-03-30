@@ -20,26 +20,21 @@
 import csv
 import logging
 import os
-import threading
 from abc import ABC, abstractmethod
-from concurrent.futures import Executor, as_completed
-from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import date, timedelta, datetime
 from enum import Enum
 from typing import List
 
-import psutil
 from netCDF4._netCDF4 import Dataset
-from rasterstats import point_query
 from rasterstats.io import Raster
-from shapely.geometry import Point
+from tqdm import tqdm
 
 from gridmet.config import GridmetVariable, GridmetContext, Shape
-from gridmet.geometry import PointInRaster
 from gridmet.gridmet_tools import find_shape_file, get_nkn_url, get_variable, get_days, \
     get_affine_transform, disaggregate
 from nsaph_gis.compute_shape import StatsCounter
 from nsaph_gis.constants import Geography, RasterizationStrategy
+from nsaph_gis.geometry import PointInRaster
 from nsaph_utils.utils.io_utils import DownloadTask, fopen, as_stream
 
 NO_DATA = -999 # I do not know what it is, but not setting it causes a warning
@@ -143,20 +138,20 @@ class ComputeGridmetTask(ABC):
         if self.date_filter:
             days = [
                 day for day in days
-                    if self.date_filter.accept(self.to_date(day))
+                if self.date_filter.accept(self.to_date(day))
             ]
         return days
 
     def prepare(self):
         if not self.affine:
             self.affine = get_affine_transform(self.infile, self.factor)
-        logging.info("{} => {}".format(self.infile, self.outfile))
+        logging.info("%s => %s", self.infile, self.outfile)
         self.dataset = Dataset(self.infile)
         days = self.get_days()
         self.variable = self.get_variable(self.dataset, self.band)
         return days
 
-    def execute(self, mode:str = "wt"):
+    def execute(self, mode: str = "wt"):
         """
         Executes computational task
 
@@ -166,9 +161,7 @@ class ComputeGridmetTask(ABC):
         """
 
         days = self.prepare()
-        self.execute_loop(mode, days)
 
-    def execute_loop(self, mode, days):
         with fopen(self.outfile, mode) as out:
             writer = CSVWriter(out)
             if 'a' not in mode:
@@ -177,7 +170,7 @@ class ComputeGridmetTask(ABC):
 
     def collect_data(self, days: List, collector: Collector):
         t0 = datetime.now()
-        for idx in range(0, len(days)):
+        for idx in range(len(days)):
             day = days[idx]
             layer = self.dataset[self.variable][idx, :, :]
             t1 = datetime.now()
@@ -288,208 +281,66 @@ class ComputePointsTask(ComputeGridmetTask):
 
         super().__init__(year, variable, infile, outfile, date_filter)
         self.points_file = points_file
-        self.points = None
-        self.partition = False
-        mem = psutil.virtual_memory().free
-        file_size = os.stat(self.points_file).st_size
-        if self.points_file.lower().endswith(".gz"):
-            file_size *= 15
-        self.points_in_memory = None
-        if self.force_standard_api:
-            self.points_in_memory = False
-        elif mem > file_size*3:
-            n_lines = count_lines(self.points_file)
-            if n_lines < 1000000:
-                self.points_in_memory = True
-        if self.points_in_memory is None:
-            self.points_in_memory = False
-            self.partition = True
+
         assert len(coordinates) == 2
         self.coordinates = coordinates
         self.metadata = metadata
-        self.step = None
         self.first_layer = None
-        self.workers = None
-        if Parallel.points in self.parallel:
-            self.workers = os.cpu_count() * 2
 
     def get_key(self):
         return self.metadata[0]
 
-    def execute(self, mode: str = "w"):
-        if not self.partition:
-            super().execute(mode)
-            return
-        if self.workers > 1:
-            self.execute_parallel()
-        else:
-            self.execute_sequentially()
+    def prepare(self):
+        ret = super().prepare()
 
-    def execute_sequentially(self):
+        self.first_layer = Raster(
+            self.dataset[self.variable][0, :, :],
+            self.affine,
+            nodata=-NO_DATA,
+        )
+        return ret
+
+    def make_point(self, row) -> PointInRaster:
+        x = float(row[self.coordinates[0]])
+        y = float(row[self.coordinates[1]])
+        point = PointInRaster(self.first_layer, self.affine, x, y)
+        return point
+
+    def execute(self, mode: str = "w") -> None:
         days = self.prepare()
-        with fopen(self.points_file, "r") as points_file:
-            reader = csv.DictReader(points_file)
-            self.step = 1
-            max_len = 500000
-            n = 0
-            nn = 0
-            self.points = []
-            mode = "w"
-            for row in reader:
-                nn += 1
-                if self.add_point(row):
-                    n += 1
-                    if n > max_len:
-                        logging.info("Read {:d} points, added to execution queue: {:d}".format(nn, n))
-                        self.execute_loop(mode, days)
-                        mode = "a"
-                        n = 0
-                        self.points = []
-                        self.step += 1
 
-        logging.info("Read all {:d} points, added to execution queue: {:d}".format(nn, n))
-        if len(self.points) > 0:
-            self.execute_loop(mode, days)
+        logging.info("Prepare rasters")
+        rasters = {}
+        for day_number in tqdm(range(len(days)), total=len(days)):
+            layer = self.dataset[self.variable][day_number, :, :]
+            raster = Raster(layer, self.affine, nodata=NO_DATA)
+            rasters[day_number] = raster
 
-    def execute_parallel(self):
-        days = self.prepare()
-        max_len = 50000
-        max_tasks = self.workers * 2
-        tasks = set()
+        logging.info("Process points")
         with fopen(self.points_file, "r") as points_file, \
-                fopen(self.outfile, "wt") as out, \
-                ThreadPoolExecutor(max_workers=self.workers) as executor:
+                fopen(self.outfile, "wt") as out:
             reader = csv.DictReader(points_file)
             writer = CSVWriter(out)
             writer.writerow([self.band.value, "date", self.get_key().lower()])
-            step = 1
-            n = 0
-            nn = 0
-            points = []
-            for row in reader:
-                nn += 1
-                if self.add_point(row, to=points):
-                    n += 1
-                    if n > max_len:
-                        logging.info(
-                            "{:d}: Read {:d} points, added to execution queue: {:d}"
-                                .format(step, nn, n))
-                        task = self.submit_step(executor, step, days, points)
-                        tasks.add(task)
-                        n = 0
-                        points = []
-                        step += 1
-                        if (len(tasks) > max_tasks):
-                            for completed_task in as_completed(tasks):
-                                result = completed_task.result()
-                                for rrow in result:
-                                    writer.writerow(rrow)
-                                writer.flush()
-                                tasks.remove(completed_task)
-                                break
 
-            logging.info("Read all {:d} points, added to execution queue: {:d}".format(nn, n))
-            if len(points) > 0:
-                self.submit_step(executor, step, days, points)
+            for n, row in enumerate(tqdm(reader)):
+                point = self.make_point(row)
+                if point.is_masked():
+                    continue
 
-            for completed_task in as_completed(tasks):
-                result = completed_task.result()
-                for rrow in result:
-                    writer.writerow(rrow)
-                writer.flush()
-        return
+                metadata = [row[p] for p in self.metadata]
 
-    def submit_step(self, executor: Executor, step: int,
-                    days: List, points: List):
-        collector = ListCollector()
-        future = executor.submit(self.execute_step,
-                                 step, days, points, collector)
-        return future
+                for day_number in range(len(days)):
+                    dt = self.origin + timedelta(days=days[day_number])
+                    mean = point.bilinear(rasters[day_number])
 
-    def execute_step(self, step: int, days: List, points: List,
-                     collector: ListCollector):
-        t0 = datetime.now()
-        tid = threading.get_ident()
-        N = 50
-        t1 = datetime.now()
-        for idx in range(0, len(days)):
-            dt = self.origin + timedelta(days=days[idx])
-            layer = self.dataset[self.variable][idx, :, :]
-            self.compute_one_day_ram(collector, dt, layer, points)
-            collector.flush()
-            if (idx % N) == N - 1:
-                t3 = datetime.now()
-                t = datetime.now() - t0
-                rate = (t3 - t1) / len(points) / N * 1000000
-                logging.info("{:d}|{:d}:{} \t{} [{}]".
-                      format(tid, step, str(dt), str(rate), str(t)))
-                t1 = datetime.now()
-        logging.info("{:d}|{:d}: completed.".format(tid, step))
-        return collector.get_result()
+                    writer.writerow([mean, dt] + metadata)
 
-    def read_points(self):
-        with fopen(self.points_file, "r") as points:
-            reader = csv.DictReader(points)
-            self.points = []
-            for row in reader:
-                self.add_point(row)
-        return
-
-    def add_point(self, row, to: List = None) -> bool:
-        x = float(row[self.coordinates[0]])
-        y = float(row[self.coordinates[1]])
-        metadata = [row[p] for p in self.metadata]
-        point = PointInRaster(self.first_layer, self.affine, x, y)
-        if point.is_masked():
-            return False
-        if to is not None:
-            to.append((metadata, point))
-        else:
-            self.points.append((metadata, point))
-        return True
-
-    def prepare(self):
-        ret = super().prepare()
-        self.first_layer = Raster(self.dataset[self.variable][0, :, :],
-                                  self.affine, nodata=-NO_DATA)
-        if self.points_in_memory:
-            self.read_points()
-        return ret
+                if n % 10_000:
+                    writer.flush()
 
     def compute_one_day(self, writer: Collector, day, layer):
-        dt = self.origin + timedelta(days=day)
-        if self.step:
-            logging.info("{:d}:{}".format(self.step, str(dt)))
-        else:
-            logging.info(dt)
-        date_string = dt.strftime("%Y-%m-%d")
-        if self.points_in_memory or self.partition:
-            self.compute_one_day_ram(writer, date_string, layer, self.points)
-        else:
-            self.compute_one_day_file(writer, date_string, layer)
-        return
-
-    def compute_one_day_file(self, writer: Collector, date_string, layer):
-        with fopen(self.points_file, "r") as points:
-            reader = csv.DictReader(points)
-            for row in reader:
-                x = float (row[self.coordinates[0]])
-                y = float (row[self.coordinates[1]])
-                metadata = [row[p] for p in self.metadata]
-                point = Point(x,y)
-                stats = point_query(point, layer, affine=self.affine)
-                mean = stats[0]
-                writer.writerow([mean, date_string] + metadata)
-        return
-
-    def compute_one_day_ram(self, writer: Collector, date_string, layer, points):
-        raster = Raster(layer, self.affine, nodata=NO_DATA)
-        for row in points:
-            metadata, point = row
-            #stats = point_query(point, layer, affine=self.affine)
-            mean = point.bilinear(raster)
-            writer.writerow([mean, date_string] + metadata)
-        return
+        pass
 
 
 class DownloadGridmetTask:

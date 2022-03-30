@@ -22,7 +22,6 @@ from typing import List, Optional
 import rasterio
 
 from netCDF4._netCDF4 import Dataset
-import shapefile
 import numpy
 import geopy
 
@@ -57,27 +56,6 @@ def get_nkn_url(variable:str, year:int) -> str:
     base = "https://www.northwestknowledge.net/metdata/data/"
     pattern = base + "{}_{:d}.nc"
     return pattern.format(variable, year)
-
-
-def get_shape_file_metadata(shape_file:str, column_names=None) -> List:
-    """
-    Extracts just metadata columns from a given shapefile
-
-    :param shape_file: a path to a shape file
-    :param column_names: a list of column names, default is:
-         ["STATE", "ZIP"]
-    :return:
-    """
-
-    if column_names is None:
-        column_names = ["STATE", "ZIP"]
-    with shapefile.Reader(shape_file) as shape:
-        print(shape)
-        shapes = [
-            ([getattr(r, c) for c in column_names])
-            for r in shape.records()
-        ]
-    return shapes
 
 
 def check_shape_file(shapes_dir: str,
