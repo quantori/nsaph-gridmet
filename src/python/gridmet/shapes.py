@@ -28,7 +28,7 @@ than AQS
 
 import argparse
 
-from epa.airnow_gis import GISDownloader
+from nsaph_gis.downloader import GISDownloader
 
 
 def download_shapes(year):
