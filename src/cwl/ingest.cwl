@@ -53,7 +53,7 @@ inputs:
     inputBinding:
       prefix: --connection
   input:
-    type: File[]
+    type: File
     inputBinding:
       prefix: --data
     doc: |
@@ -99,4 +99,3 @@ outputs:
     type: stderr
 
 stderr:  $("ingest-" + inputs.table + ".err")
-

@@ -32,7 +32,7 @@ inputs:
     default: ""
     doc: HTTP/HTTPS Proxy if required
   year:
-    type: string[]
+    type: string
     doc: |
       Parameter code. Either a numeric code (e.g. 88101, 44201)
       or symbolic name (e.g. PM25, NO2).

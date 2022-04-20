@@ -32,7 +32,7 @@ from nsaph_gis.downloader import GISDownloader
 
 
 def download_shapes(year):
-    GISDownloader.download_shapes(year)
+    GISDownloader.download_zip(year)
 
 
 if __name__ == '__main__':
