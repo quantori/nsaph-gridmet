@@ -50,10 +50,10 @@ inputs:
       Type of geography: zip codes or counties
   years:
     type: string[]
-#    default: ['1999', '2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020']
+    default: ['1999', '2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020']
   bands:
     type: string[]
-#    default: ['bi', 'erc', 'etr', 'fm100', 'fm1000', 'pet', 'pr', 'rmax', 'rmin', 'sph', 'srad', 'th', 'tmmn', 'tmmx', 'vpd', 'vs']
+    default: ['bi', 'erc', 'etr', 'fm100', 'fm1000', 'pet', 'pr', 'rmax', 'rmin', 'sph', 'srad', 'th', 'tmmn', 'tmmx', 'vpd', 'vs']
   database:
     type: File
     doc: Path to database connection file, usually database.ini
@@ -75,13 +75,16 @@ steps:
       - errors
 
   process:
-    scatter: band
+    scatter:
+      - band
+      - year
+    scatterMethod: nested_crossproduct
     in:
       proxy: proxy
       model: registry/model
       shapes: shapes
       geography: geography
-      years: years
+      year: years
       dates: dates
       band: bands
       database: database
@@ -100,8 +103,8 @@ steps:
           type: Directory?
         geography:
           type: string
-        years:
-          type: string[]
+        year:
+          type: string
         band:
           type: string
         table:
@@ -117,10 +120,8 @@ steps:
         download:
           run: download.cwl
           doc: Downloads data
-          scatter: year
-          scatterMethod:  nested_crossproduct
           in:
-            year: years
+            year: year
             band: band
           out:
             - data
@@ -130,20 +131,18 @@ steps:
         get_shapes:
           run: get_shapes.cwl
           in:
-            year: years
+            year: year
             proxy: proxy
           out: [shape_files]
 
-        process:
+        aggregate:
           run: process.cwl
           doc: Processes data
-          scatter: year
-          scatterMethod:  nested_crossproduct
           in:
             proxy: proxy
             shapes: shapes
             geography: geography
-            year: years
+            year: year
             dates: dates
             band: band
             input: download/data
@@ -159,7 +158,7 @@ steps:
           in:
             registry: model
             table: table
-            input: process/data
+            input: aggregate/data
             database: database
             connection_name: connection_name
           out: [log, errors]
@@ -187,16 +186,24 @@ steps:
             database: database
             connection_name: connection_name
           out: [log, errors]
+
       outputs:
-        process_data:
-          type: File[]
-          outputSource: process/data
-        process_log:
-          type: File[]
-          outputSource: process/log
-        process_err:
-          type: File[]
-          outputSource: process/errors
+        download_log:
+          type: File
+          outputSource: download/log
+        download_err:
+          type: File
+          outputSource: download/errors
+
+        aggregate_data:
+          type: File
+          outputSource: aggregate/data
+        aggregate_log:
+          type: File
+          outputSource: aggregate/log
+        aggregate_err:
+          type: File
+          outputSource: aggregate/errors
 
         ingest_log:
           type: File
@@ -219,20 +226,17 @@ steps:
           type: File
           outputSource: vacuum/errors
     out:
-      - data
       - download_log
       - download_err
-      - process_err
-      - process_data
-      - process_log
+      - aggregate_err
+      - aggregate_data
+      - aggregate_log
       - ingest_log
       - ingest_err
       - index_log
       - index_err
       - vacuum_log
       - vacuum_err
-
-
 
 outputs:
   registry:
@@ -251,7 +255,7 @@ outputs:
       items:
         type: array
         items: [File]
-    outputSource: process/data
+    outputSource: process/aggregate_data
   download_log:
     type:
       type: array
@@ -273,32 +277,56 @@ outputs:
       items:
         type: array
         items: [File]
-    outputSource: process/process_log
+    outputSource: process/aggregate_log
   process_err:
     type:
       type: array
       items:
         type: array
         items: [File]
-    outputSource: process/process_err
+    outputSource: process/aggregate_err
 
   ingest_log:
-    type: File[]
+    type:
+      type: array
+      items:
+        type: array
+        items: [File]
     outputSource: process/ingest_log
   ingest_err:
-    type: File[]
+    type:
+      type: array
+      items:
+        type: array
+        items: [File]
     outputSource: process/ingest_err
 
   index_log:
-    type: File[]
+    type:
+      type: array
+      items:
+        type: array
+        items: [File]
     outputSource: process/index_log
   index_err:
-    type: File[]
+    type:
+      type: array
+      items:
+        type: array
+        items: [File]
     outputSource: process/index_err
 
   vacuum_log:
-    type: File[]
+    type:
+      type: array
+      items:
+        type: array
+        items: [File]
     outputSource: process/vacuum_log
   vacuum_err:
-    type: File[]
+    type:
+      type: array
+      items:
+        type: array
+        items: [File]
     outputSource: process/vacuum_err
