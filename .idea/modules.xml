@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/gridmet.iml" filepath="$PROJECT_DIR$/.idea/gridmet.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../nsaph-gis/nsaph-gis.iml" filepath="$PROJECT_DIR$/../nsaph-gis/nsaph-gis.iml" />
     </modules>
   </component>
 </project>

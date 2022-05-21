@@ -6,7 +6,7 @@ with open("README.md", "r") as readme:
 
 setup(
     name='gridmet',
-    version="0.0.1.2",
+    version="0.0.1.3",
     url='https://gitlab-int.rc.fas.harvard.edu/rse/francesca_dominici/tools/gridmet',
     license='',
     author='Michael Bouzinier',

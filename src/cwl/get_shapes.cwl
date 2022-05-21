@@ -33,12 +33,14 @@ inputs:
     doc: HTTP/HTTPS Proxy if required
   year:
     type: string
-    doc: |
-      Parameter code. Either a numeric code (e.g. 88101, 44201)
-      or symbolic name (e.g. PM25, NO2).
-      See more: [AQS Code List](https://www.epa.gov/aqs/aqs-code-list)
+    doc: Calendar year, for which we are downloading shape file
     inputBinding:
       prefix: --year
+  geo:
+    type: string
+    doc: geography type, zip or county
+    inputBinding:
+      prefix: --geography
 
 outputs:
   shape_files:

@@ -241,10 +241,12 @@ class ComputeShapesTask(ComputeGridmetTask):
         if self.factor > 1:
             layer = disaggregate(layer, self.factor)
 
-        logging.info("%s:%s:%s", self.geography.value, self.band.value, dt)
+        now = datetime.now()
+        logging.info("%s:%s:%s:%s", str(now), self.geography.value, self.band.value, dt)
 
-        for record in StatsCounter.process(self.strategy, self.shapefile, self.affine, layer):
+        for record in StatsCounter.process(self.strategy, self.shapefile, self.affine, layer, self.geography):
             writer.writerow([record.mean, dt.strftime("%Y-%m-%d"), record.prop])
+        logging.debug("%s: completed in %s", str(datetime.now()), str(datetime.now() - now))
 
 
 class ComputePointsTask(ComputeGridmetTask):
@@ -456,10 +458,17 @@ class GridmetTask:
         """
         :param context: Configuration object for the pipeline
         :param year: year
-        :param variable: Gridmet band (variable)
+        :param variable: gridMET band (variable)
         """
-        destination = context.raw_downloads
-        self.download_task = DownloadGridmetTask(year, variable, destination)
+
+        if os.path.isfile(context.raw_downloads):
+            self.download_task = None
+            self.raw_download = context.raw_downloads
+        else:
+            self.download_task = DownloadGridmetTask(
+                year, variable, context.raw_downloads
+            )
+            self.raw_download = self.download_task.target()
 
         destination = context.destination
         if not os.path.isdir(destination):
@@ -471,7 +480,7 @@ class GridmetTask:
 
         if context.shape_files:
             self.compute_tasks = [
-                ComputeShapesTask(year, variable, self.download_task.target(),
+                ComputeShapesTask(year, variable, self.raw_download,
                                   result, context.strategy, shape_filename,
                                   context.geography, context.dates)
                 for shape_filename in context.shape_files
@@ -510,6 +519,7 @@ class GridmetTask:
         :return: None
         """
 
-        self.download_task.execute()
+        if self.download_task is not None:
+            self.download_task.execute()
         for task in self.compute_tasks:
             task.execute()

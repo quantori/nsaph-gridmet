@@ -28,16 +28,27 @@ than AQS
 
 import argparse
 
+from nsaph_gis.constants import Geography
 from nsaph_gis.downloader import GISDownloader
 
 
-def download_shapes(year):
-    GISDownloader.download_zip(year)
+def download_shapes(year, geography):
+    if geography == Geography.county.value:
+        GISDownloader.download_county(year)
+    elif geography == Geography.zip.value:
+        GISDownloader.download_zip(year)
+    else:
+        raise ValueError("Unknown geography: " + geography)
 
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
-    ap.add_argument("--year", dest="year", type=int, required=False, help="Year")
+    ap.add_argument("--year", "-y", dest="year", type=int, required=True, help="Year")
+    ap.add_argument("--geography", "--geo", "-g", required=True,
+                    help="One of: " + ", ".join([
+                        v.value for v in Geography
+                    ])
+                    )
     args = ap.parse_args()
 
-    download_shapes(year=args.year)
+    download_shapes(year=args.year, geography=args.geography)
