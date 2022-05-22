@@ -27,6 +27,11 @@ requirements:
   InlineJavascriptRequirement: {}
   ResourceRequirement:
     coresMin: 0.5
+  EnvVarRequirement:
+    envDef:
+      HTTP_PROXY: "$('proxy' in inputs? inputs.proxy: null)"
+      HTTPS_PROXY: "$('proxy' in inputs? inputs.proxy: null)"
+      NO_PROXY: "localhost,127.0.0.1,172.17.0.1"
 
 doc: |
   This tool downloads gridMET data from Atmospheric Composition Analysis Group

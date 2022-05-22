@@ -23,6 +23,16 @@ cwlVersion: v1.2
 class: CommandLineTool
 baseCommand: [python, -m, gridmet.shapes]
 
+requirements:
+  ResourceRequirement:
+    coresMin: 1
+  EnvVarRequirement:
+    envDef:
+      HTTP_PROXY: "$('proxy' in inputs? inputs.proxy: null)"
+      HTTPS_PROXY: "$('proxy' in inputs? inputs.proxy: null)"
+      NO_PROXY: "localhost,127.0.0.1,172.17.0.1"
+
+
 doc: |
   This tool downloads AirNow data from EPA website
 
