@@ -195,6 +195,7 @@ steps:
           in:
             year: year
             band: band
+            proxy: proxy
           out:
             - data
             - log
