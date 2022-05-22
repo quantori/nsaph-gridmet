@@ -22,7 +22,6 @@
 cwlVersion: v1.2
 class: CommandLineTool
 baseCommand: [python, -m, gridmet.launcher]
-#baseCommand: echo
 
 requirements:
   InlineJavascriptRequirement: {}
@@ -31,11 +30,14 @@ requirements:
       HTTP_PROXY: "$('proxy' in inputs? inputs.proxy: null)"
       HTTPS_PROXY: "$('proxy' in inputs? inputs.proxy: null)"
       NO_PROXY: "localhost,127.0.0.1,172.17.0.1"
+  ResourceRequirement:
+    # coresMin: 1
+    coresMax: 2
 
 
 doc: |
-  This tool downloads gridMET data from Atmospheric Composition Analysis Group
-  and then preprocesses it to aggregate over shapes (zip codes or counties)
+  This tool preprocesses gridMET to aggregate over shapes
+  (zip codes or counties) and time. It produces daily mean values
 
 inputs:
   proxy:
@@ -99,9 +101,13 @@ outputs:
       glob: "*.log"
   data:
     type: File?
+    doc: |
+      The output CSV file, containing daily means of the given
+      gridMET variable over given geographies. Each line
+      contains date, geo id (zip or county FIPS) and value
     outputBinding:
       glob: $(inputs.band + "/*.csv.gz")
   errors:
     type: stderr
 
-stderr: registry.err
+stderr: $("aggr-" + inputs.band + "-" + inputs.year + ".err")

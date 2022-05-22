@@ -34,15 +34,39 @@ class DateFilter:
     def __init__(self, value: str):
         self.min = None
         self.max = None
+        self.ftype = None
+        self.values = []
         if not value:
             return
         if ':' not in value:
             raise ValueError("Filter spec must include ':'")
         bounds = value.split(':')
-        self.min = datetime.date.fromisoformat(bounds[0])
-        self.max = datetime.date.fromisoformat(bounds[1])
+        if bounds[0].lower() in ["dayofmonth", "month", "date"]:
+            self.ftype = bounds[0].lower()
+            self.values = [v.strip() for v in bounds[1].split(',')]
+        else:
+            self.ftype = "range"
+            self.min = datetime.date.fromisoformat(bounds[0])
+            self.max = datetime.date.fromisoformat(bounds[1])
 
-    def accept(self, day):
+    def accept(self, day: datetime.date):
+        if self.ftype == "dayofmonth":
+            dom = str(day.day)
+            if dom in self.values:
+                return True
+            return False
+        elif self.ftype == "month":
+            mnth = str(day.month)
+            if mnth in self.values:
+                return True
+            return False
+        elif self.ftype == "date":
+            dt = day.strftime("%m-%d")
+            if dt in self.values:
+                return True
+            if dt.strip('0') in self.values:
+                return True
+            return False
         if self.min and day < self.min:
             return False
         if self.max and day > self.max:

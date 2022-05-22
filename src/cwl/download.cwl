@@ -25,10 +25,12 @@ baseCommand: [wget]
 
 requirements:
   InlineJavascriptRequirement: {}
+  ResourceRequirement:
+    coresMin: 0.5
 
 doc: |
   This tool downloads gridMET data from Atmospheric Composition Analysis Group
-  and then preprocesses it to aggregate over shapes (zip codes or counties)
+
 
 inputs:
   year:
@@ -59,4 +61,4 @@ outputs:
   errors:
     type: stderr
 
-stderr: registry.err
+stderr:  $("wget-" + inputs.band + "-" + inputs.year + ".err")

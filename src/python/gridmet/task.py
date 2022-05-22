@@ -465,9 +465,11 @@ class GridmetTask:
             self.download_task = None
             self.raw_download = context.raw_downloads
         else:
-            self.download_task = DownloadGridmetTask(
-                year, variable, context.raw_downloads
-            )
+            dest = context.raw_downloads
+            _, ext = os.path.splitext(dest)
+            if not os.path.isdir(dest) or ext:
+                dest = os.path.dirname(dest)
+            self.download_task = DownloadGridmetTask(year, variable, dest)
             self.raw_download = self.download_task.target()
 
         destination = context.destination
