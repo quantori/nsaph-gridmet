@@ -21,7 +21,7 @@
 
 cwlVersion: v1.2
 class: CommandLineTool
-baseCommand: [echo]
+baseCommand: [wget -d]
 
 requirements:
   InlineJavascriptRequirement: {}
