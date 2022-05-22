@@ -21,7 +21,7 @@
 
 cwlVersion: v1.2
 class: CommandLineTool
-baseCommand: [echo $HTTPS_PROXY ; wget]
+baseCommand: [echo $HTTPS_PROXY]
 
 requirements:
   InlineJavascriptRequirement: {}
