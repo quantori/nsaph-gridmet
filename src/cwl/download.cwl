@@ -38,6 +38,10 @@ doc: |
 
 
 inputs:
+  proxy:
+    type: string?
+    default: ""
+    doc: HTTP/HTTPS Proxy if required
   year:
     type: string
     doc: "Year to process"
