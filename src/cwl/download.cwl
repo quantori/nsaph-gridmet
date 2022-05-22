@@ -21,7 +21,7 @@
 
 cwlVersion: v1.2
 class: CommandLineTool
-baseCommand: [wget -d]
+baseCommand: [wget]
 
 requirements:
   InlineJavascriptRequirement: {}
@@ -42,8 +42,8 @@ inputs:
     type: string?
     default: ""
     doc: HTTP/HTTPS Proxy if required
-    inputBinding:
-      position: 1
+#    inputBinding:
+#      position: 1
   year:
     type: string
     doc: "Year to process"
@@ -54,6 +54,8 @@ inputs:
 
 arguments:
   - position: 1
+    valueFrom: "-d"
+  - position: 2
     valueFrom: |
       ${
           var base = "https://www.northwestknowledge.net/metdata/data/";
