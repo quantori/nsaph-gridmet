@@ -67,7 +67,7 @@ inputs:
     doc: 'dates restriction, for testing purposes only'
 
 steps:
-  registry:
+  make_registry:
     run: registry.cwl
     doc: Writes down YAML file with the database model
     in: []
@@ -129,7 +129,7 @@ steps:
           type: File
           outputSource: index/errors
     in:
-      registry:  registry/model
+      registry:  make_registry/model
       database: database
       connection_name: connection_name
       band: bands
@@ -151,7 +151,7 @@ steps:
     in:
       proxy: proxy
       depends_on: init_tables/index_log
-      model: registry/model
+      model: make_registry/model
       shapes: shapes
       geography: geography
       year: years
@@ -294,13 +294,13 @@ steps:
 outputs:
   registry:
     type: File?
-    outputSource: registry/model
+    outputSource: make_registry/model
   registry_log:
     type: File?
-    outputSource: registry/log
+    outputSource: make_registry/log
   registry_err:
     type: File?
-    outputSource: registry/errors
+    outputSource: make_registry/errors
 
   data:
     type:
