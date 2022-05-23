@@ -42,8 +42,6 @@ inputs:
     type: string?
     default: ""
     doc: HTTP/HTTPS Proxy if required
-#    inputBinding:
-#      position: 1
   year:
     type: string
     doc: "Year to process"
@@ -56,6 +54,9 @@ arguments:
   - position: 1
     valueFrom: "-d"
   - position: 2
+    valueFrom:
+      $("-e https_proxy=" + input.proxy)
+  - position: 3
     valueFrom: |
       ${
           var base = "https://www.northwestknowledge.net/metdata/data/";
