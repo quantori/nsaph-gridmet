@@ -54,8 +54,7 @@ arguments:
   - position: 1
     valueFrom: "-d"
   - position: 2
-    valueFrom:
-      $("-e https_proxy=" + input.proxy)
+    valueFrom: $("-e https_proxy=" + input.proxy)
   - position: 3
     valueFrom: |
       ${
