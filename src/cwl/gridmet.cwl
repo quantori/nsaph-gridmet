@@ -1,6 +1,6 @@
 #!/usr/bin/env cwl-runner
 ### gridMET Pipeline
-#  Copyright (c) 2021. Harvard University
+#  Copyright (c) 2021-2022. Harvard University
 #
 #  Developed by Research Software Engineering,
 #  Faculty of Arts and Sciences, Research Computing (FAS RC)
@@ -29,13 +29,11 @@ requirements:
   ScatterFeatureRequirement: {}
   MultipleInputFeatureRequirement: {}
 
-hints:
-  ResourceRequirement:
-    coresMin: 24
-    coresMax: 32
 
 doc: |
-  Downloads, processes gridMET data and ingests it into the database
+  Downloads, processes gridMET data and ingests it into the database.
+  The workflow downloads raw data, aggregates it to calculate daily mean values
+  for each given geography and ingests it into the database
 
 inputs:
   proxy:
@@ -44,16 +42,18 @@ inputs:
     doc: HTTP/HTTPS Proxy if required
   shapes:
     type: Directory?
+    doc: Do we even need this parameter, as we isntead downloading shapes?
   geography:
     type: string
     doc: |
       Type of geography: zip codes or counties
+      Valid values: "zip" or "county"
   years:
     type: string[]
     default: ['1999', '2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020']
   bands:
     type: string[]
-    default: ['bi', 'erc', 'etr', 'fm100', 'fm1000', 'pet', 'pr', 'rmax', 'rmin', 'sph', 'srad', 'th', 'tmmn', 'tmmx', 'vpd', 'vs']
+    # default: ['bi', 'erc', 'etr', 'fm100', 'fm1000', 'pet', 'pr', 'rmax', 'rmin', 'sph', 'srad', 'th', 'tmmn', 'tmmx', 'vpd', 'vs']
   database:
     type: File
     doc: Path to database connection file, usually database.ini
@@ -65,7 +65,7 @@ inputs:
     doc: 'dates restriction, for testing purposes only'
 
 steps:
-  registry:
+  make_registry:
     run: registry.cwl
     doc: Writes down YAML file with the database model
     in: []
@@ -74,14 +74,82 @@ steps:
       - log
       - errors
 
+  init_tables:
+    doc: creates or recreates database tables, one for each band
+    scatter:
+      - band
+    run:
+      class: Workflow
+      inputs:
+        registry:
+          type: File
+        table:
+          type: string
+        database:
+          type: File
+        connection_name:
+          type: string
+      steps:
+        reset:
+          run: reset.cwl
+          in:
+            registry:  registry
+            domain:
+              valueFrom: "gridmet"
+            database: database
+            connection_name: connection_name
+            table: table
+          out:
+            - log
+            - errors
+        index:
+          run: index.cwl
+          in:
+            depends_on: reset/log
+            registry: registry
+            domain:
+              valueFrom: "gridmet"
+            table: table
+            database: database
+            connection_name: connection_name
+          out: [log, errors]
+      outputs:
+        reset_log:
+          type: File
+          outputSource: reset/log
+        reset_err:
+          type: File
+          outputSource: reset/errors
+        index_log:
+          type: File
+          outputSource: index/log
+        index_err:
+          type: File
+          outputSource: index/errors
+    in:
+      registry:  make_registry/model
+      database: database
+      connection_name: connection_name
+      band: bands
+      geography: geography
+      table:
+        valueFrom: $(inputs.geography + '_' + inputs.band)
+    out:
+      - reset_log
+      - reset_err
+      - index_log
+      - index_err
+
   process:
+    doc: Downloads raw data and aggregates it over shapes and time
     scatter:
       - band
       - year
     scatterMethod: nested_crossproduct
     in:
       proxy: proxy
-      model: registry/model
+      depends_on: init_tables/index_log
+      model: make_registry/model
       shapes: shapes
       geography: geography
       year: years
@@ -95,6 +163,8 @@ steps:
     run:
       class: Workflow
       inputs:
+        depends_on:
+          type: Any?
         proxy:
           type: string?
         model:
@@ -123,6 +193,7 @@ steps:
           in:
             year: year
             band: band
+            proxy: proxy
           out:
             - data
             - log
@@ -132,6 +203,7 @@ steps:
           run: get_shapes.cwl
           in:
             year: year
+            geo: geography
             proxy: proxy
           out: [shape_files]
 
@@ -153,7 +225,7 @@ steps:
             - errors
 
         ingest:
-          run: ingest.cwl
+          run: add_data.cwl
           doc: Uploads data into the database
           in:
             registry: model
@@ -163,22 +235,10 @@ steps:
             connection_name: connection_name
           out: [log, errors]
 
-        index:
-          run: index.cwl
-          in:
-            depends_on: ingest/log
-            registry: model
-            domain:
-              valueFrom: "gridmet"
-            table: table
-            database: database
-            connection_name: connection_name
-          out: [log, errors]
-
         vacuum:
           run: vacuum.cwl
           in:
-            depends_on: index/log
+            depends_on: ingest/log
             domain:
               valueFrom: "gridmet"
             registry: model
@@ -212,13 +272,6 @@ steps:
           type: File
           outputSource: ingest/errors
 
-        index_log:
-          type: File
-          outputSource: index/log
-        index_err:
-          type: File
-          outputSource: index/errors
-
         vacuum_log:
           type: File
           outputSource: vacuum/log
@@ -233,21 +286,19 @@ steps:
       - aggregate_log
       - ingest_log
       - ingest_err
-      - index_log
-      - index_err
       - vacuum_log
       - vacuum_err
 
 outputs:
   registry:
     type: File?
-    outputSource: registry/model
+    outputSource: make_registry/model
   registry_log:
     type: File?
-    outputSource: registry/log
+    outputSource: make_registry/log
   registry_err:
     type: File?
-    outputSource: registry/errors
+    outputSource: make_registry/errors
 
   data:
     type:
@@ -301,20 +352,27 @@ outputs:
         items: [File]
     outputSource: process/ingest_err
 
+  reset_log:
+    type:
+      type: array
+      items: [File]
+    outputSource: init_tables/reset_log
+  reset_err:
+    type:
+      type: array
+      items: [File]
+    outputSource: init_tables/reset_err
+
   index_log:
     type:
       type: array
-      items:
-        type: array
-        items: [File]
-    outputSource: process/index_log
+      items: [File]
+    outputSource: init_tables/index_log
   index_err:
     type:
       type: array
-      items:
-        type: array
-        items: [File]
-    outputSource: process/index_err
+      items: [File]
+    outputSource: init_tables/index_err
 
   vacuum_log:
     type:
