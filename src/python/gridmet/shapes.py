@@ -7,11 +7,11 @@ AirNow contains real-time up-to-date pollution data but is less reliable
 than AQS
 
 """
-#  Copyright (c) 2021. Harvard University
+#  Copyright (c) 2021-2022. Harvard University
 #
 #  Developed by Research Software Engineering,
 #  Faculty of Arts and Sciences, Research Computing (FAS RC)
-#  Author: Quantori LLC
+#  in collaboration with Quantori LLC
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.

@@ -75,72 +75,6 @@ steps:
       - log
       - errors
 
-  init_tables:
-    doc: creates or recreates database tables, one for each band
-    scatter:
-      - band
-    run:
-      class: Workflow
-      inputs:
-        registry:
-          type: File
-        table:
-          type: string
-        database:
-          type: File
-        connection_name:
-          type: string
-      steps:
-        reset:
-          run: reset.cwl
-          in:
-            registry:  registry
-            domain:
-              valueFrom: "gridmet"
-            database: database
-            connection_name: connection_name
-            table: table
-          out:
-            - log
-            - errors
-        index:
-          run: index.cwl
-          in:
-            depends_on: reset/log
-            registry: registry
-            domain:
-              valueFrom: "gridmet"
-            table: table
-            database: database
-            connection_name: connection_name
-          out: [log, errors]
-      outputs:
-        reset_log:
-          type: File
-          outputSource: reset/log
-        reset_err:
-          type: File
-          outputSource: reset/errors
-        index_log:
-          type: File
-          outputSource: index/log
-        index_err:
-          type: File
-          outputSource: index/errors
-    in:
-      registry:  make_registry/model
-      database: database
-      connection_name: connection_name
-      band: bands
-      geography: geography
-      table:
-        valueFrom: $(inputs.geography + '_' + inputs.band)
-    out:
-      - reset_log
-      - reset_err
-      - index_log
-      - index_err
-
   process:
     doc: Downloads raw data and aggregates it over shapes and time
     scatter:
@@ -149,7 +83,7 @@ steps:
     scatterMethod: nested_crossproduct
     in:
       proxy: proxy
-      depends_on: init_tables/index_log
+      depends_on: make_registry/log
       model: make_registry/model
       shapes: shapes
       geography: geography
@@ -352,28 +286,6 @@ outputs:
         type: array
         items: [File]
     outputSource: process/ingest_err
-
-  reset_log:
-    type:
-      type: array
-      items: [File]
-    outputSource: init_tables/reset_log
-  reset_err:
-    type:
-      type: array
-      items: [File]
-    outputSource: init_tables/reset_err
-
-  index_log:
-    type:
-      type: array
-      items: [File]
-    outputSource: init_tables/index_log
-  index_err:
-    type:
-      type: array
-      items: [File]
-    outputSource: init_tables/index_err
 
   vacuum_log:
     type:
