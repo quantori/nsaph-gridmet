@@ -41,7 +41,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx_paramlinks',
     'sphinx.ext.autosectionlabel',
-    'recommonmark'
+    'nsaph_utils.docutils.recommonmark',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
