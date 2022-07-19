@@ -31,7 +31,7 @@ requirements:
   InitialWorkDirRequirement:
     listing:
       - $(inputs.band)
-  
+
 
 inputs:
   source:
@@ -47,5 +47,3 @@ outputs:
       glob: "*.yaml"
   errors:
     type: stderr
-
-  $("rearranger-" + inputs.band + ".err")
