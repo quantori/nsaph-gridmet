@@ -6,6 +6,9 @@
 Welcome to Gridmet Computational Utilities documentation!
 ==========================================================
 
+`Documentation Home <../../home.html>`_
+
+
 WHAT IS GRIDMET?
 ----------------
 gridMET is a dataset of daily high-spatial resolution (~4-km, 1/24th degree)
