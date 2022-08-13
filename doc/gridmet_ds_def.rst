@@ -1,6 +1,6 @@
 Configuration Object
 ====================
-.. autoclass:: gridmet_ds_def.GridmetContext
+.. autoclass:: gridmet.config.GridmetContext
    :members:
    :exclude-members: validate
    :inherited-members: years, compress

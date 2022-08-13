@@ -1,8 +1,27 @@
-NSAPH gridMET Read Me First
-==================================
+# Welcome to Gridmet Computational Utilities documentation!
 
-gridMET is a dataset of daily high-spatial resolution (~4-km, 1/24th degree) 
-surface meteorological data covering the contiguous US from 1979-yesterday. 
+[Documentation Home](../../home.html)
+
+```{toctree}
+---
+maxdepth: 2
+hidden:
+---
+classes
+enums
+gridmet_tools
+```
+
+```{contents}
+---
+local:
+---
+```
+
+## What is GRIDMET?
+
+gridMET is a dataset of daily high-spatial resolution (~4-km, 1/24th degree)
+surface meteorological data covering the contiguous US from 1979-yesterday.
 The data are also known and cited as METDATA.
 
 Executing pipelines from this package require a collection of shape files
@@ -16,15 +35,9 @@ Which geography is used is defined by `geography` argument that defaults
 to "zip". Only actually used geographies must have their shape files
 for the years actually used.
 
-Detailed Documentation
-----------------------
+## Usage
 
-[NSAPH gridMET Documentation](https://nsaph-data-platform.github.io/nsaph-platform-docs/common/gridmet/)                                
-[Full Platform Documentation](https://nsaph-data-platform.github.io/nsaph-platform-docs/home.html)
-
-Usage
------
-
+```
     usage: gridmet.py [-h] --variable
                       {bi,erc,etr,fm100,fm1000,pet,pr,rmax,rmin,sph,srad,th,tmmn,tmmx,vpd,vs}
                       [{bi,erc,etr,fm100,fm1000,pet,pr,rmax,rmin,sph,srad,th,tmmn,tmmx,vpd,vs} ...]
@@ -67,9 +80,9 @@ Usage
                             Column names for coordinates, default:
       --metadata METADATA [METADATA ...], -m METADATA [METADATA ...], --meta METADATA [METADATA ...]
                             Column names for metadata, default:
-    
-Example
--------
+```
+
+## Example
 
 One can try it on `nsaph-sandbox01.rc.fas.harvard.edu` changing to folder:
 `/data/projects/gridmet/`
@@ -77,6 +90,13 @@ One can try it on `nsaph-sandbox01.rc.fas.harvard.edu` changing to folder:
 and running the following command (do not forget `-u` option, or you 
 will not be able to see the progress):
 
-`source /home/nsaph/projects/tools/gridmet/.gridmet/bin/activate && PYTHONPATH=/home/nsaph/projects/tools/gridmet/src/python python -u -m gridmet --var tmmx -y 2001 --shapes_dir shapes/zip_shape_files --strategy downscale`
+```shell
+source /home/nsaph/projects/tools/gridmet/.gridmet/bin/activate && PYTHONPATH=/home/nsaph/projects/tools/gridmet/src/python python -u -m gridmet --var tmmx -y 2001 --shapes_dir shapes/zip_shape_files --strategy downscale
+```
 
-The results can be then found in data/processed folder
+The results can be then found in `data/processed` folder
+
+## Indices and tables
+
+* [](genindex)
+* [](modindex)

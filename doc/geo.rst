@@ -1,4 +1,4 @@
 Types of Geography
 =========================
-.. autoclass:: gridmet_ds_def.Geography
+.. autoclass::  nsaph_gis.constants.Geography
    :members:
