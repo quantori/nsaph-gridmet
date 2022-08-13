@@ -1,6 +1,6 @@
 # Gridmet Computational Utilities
 
-[Documentation Home](../../home.html)
+[Documentation Home](https://nsaph-data-platform.github.io/nsaph-platform-docs/home.html)
 
 ```{toctree}
 ---
