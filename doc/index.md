@@ -1,4 +1,4 @@
-# Welcome to Gridmet Computational Utilities documentation!
+# Gridmet Computational Utilities
 
 [Documentation Home](../../home.html)
 
