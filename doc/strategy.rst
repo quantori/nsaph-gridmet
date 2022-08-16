@@ -1,4 +1,4 @@
 Rasterization Strategy
 =========================
-.. autoclass:: gridmet_ds_def.RasterizationStrategy
+.. autoclass:: nsaph_gis.constants.RasterizationStrategy
    :members:
