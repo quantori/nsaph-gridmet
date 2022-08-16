@@ -1,7 +1,7 @@
 Task Object
 ===========
 
-.. autoclass:: gridmet_task.GridmetTask
+.. autoclass:: gridmet.task.GridmetTask
    :members:
 
 Subtasks
@@ -10,16 +10,16 @@ Subtasks
 Downloading
 ^^^^^^^^^^^
 
-.. autoclass:: gridmet_task.DownloadGridmetTask
+.. autoclass:: gridmet.task.DownloadGridmetTask
    :members:
 
 Compute
 ^^^^^^^
-.. autoclass:: gridmet_task.ComputeGridmetTask
+.. autoclass:: gridmet.task.ComputeGridmetTask
    :members:
 
-.. autoclass:: gridmet_task.ComputeShapesTask
+.. autoclass:: gridmet.task.ComputeShapesTask
    :members:
 
-.. autoclass:: gridmet_task.ComputePointsTask
+.. autoclass:: gridmet.task.ComputePointsTask
    :members:
