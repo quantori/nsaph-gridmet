@@ -18,7 +18,7 @@ local:
 ---
 ```
 
-## What is GRIDMET?
+## What is gridMET?
 
 gridMET is a dataset of daily high-spatial resolution (~4-km, 1/24th degree)
 surface meteorological data covering the contiguous US from 1979-yesterday.
@@ -35,7 +35,7 @@ Which geography is used is defined by `geography` argument that defaults
 to "zip". Only actually used geographies must have their shape files
 for the years actually used.
 
-## Usage
+## Usage {#gridmet-usage}
 
 ```
     usage: gridmet.py [-h] --variable
@@ -96,7 +96,7 @@ source /home/nsaph/projects/tools/gridmet/.gridmet/bin/activate && PYTHONPATH=/h
 
 The results can be then found in `data/processed` folder
 
-## Indices and tables
+## Indices {#gridmet-indices}
 
 * [](genindex)
 * [](modindex)
