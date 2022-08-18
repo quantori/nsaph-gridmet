@@ -35,7 +35,7 @@ Which geography is used is defined by `geography` argument that defaults
 to "zip". Only actually used geographies must have their shape files
 for the years actually used.
 
-## Usage {#gridmet-usage}
+## Using command line gridMET utility 
 
 ```
     usage: gridmet.py [-h] --variable
@@ -96,7 +96,3 @@ source /home/nsaph/projects/tools/gridmet/.gridmet/bin/activate && PYTHONPATH=/h
 
 The results can be then found in `data/processed` folder
 
-## Indices {#gridmet-indices}
-
-* [](genindex)
-* [](modindex)
