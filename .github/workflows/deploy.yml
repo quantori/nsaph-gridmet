@@ -7,8 +7,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Workflow and Wait
-        uses: convictional/trigger-workflows-and-wait@v1.6.3
+      - uses: convictional/trigger-workflows-and-wait@v1.6.3
         with:
           owner: quantori
           ref: feature/automatic_documentation
