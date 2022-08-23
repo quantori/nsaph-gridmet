@@ -1,13 +1,15 @@
-name: Push changes to nspah-platform-docs
+name: Push changes to nsaph-platform-docs
 on:
   push:
     branches:
       - feature/automatic_documentation
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: convictional/trigger-workflows-and-wait@v1.6.3
+      - name: Trigger Workflow and Wait
+        uses: convictional/trigger-workflow-and-wait@v1.6.3
         with:
           owner: quantori
           ref: feature/automatic_documentation
