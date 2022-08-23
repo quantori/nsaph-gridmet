@@ -1,4 +1,4 @@
-name: Push changes to nsaph-platform-docs
+name: Trigger nsaph-platform-docs
 on:
   push:
     branches:
