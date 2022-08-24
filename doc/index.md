@@ -6,10 +6,12 @@
 ---
 maxdepth: 2
 hidden:
+glob:
 ---
 classes
 enums
 gridmet_tools
+pipeline/*
 ```
 
 ```{contents}
